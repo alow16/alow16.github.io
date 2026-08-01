@@ -21,15 +21,23 @@
  *      up front, cream dots beading along them as they finish
  *   4. wildlife arrives: fish schools fade in and start swimming, bubbles
  *      trickle off the reef, a whale shark and blacktip reef sharks cross
- *      the mid-water, a humphead wrasse patrols the reef crest, lionfish
- *      hang over the near coral, a shoal of regal blue tangs drifts through
- *      the near foreground, a leafy sea dragon works the bed below them,
- *      and starfish, urchins, anemones and clams dot the floor
+ *      the mid-water, a humphead wrasse patrols the reef crest, a coral
+ *      grouper holds its territory over the near coral with a party of
+ *      ribboned sweetlips idling behind it and a herd of yellow tangs
+ *      grazing above, lionfish hang over the near coral, a shoal of regal
+ *      blue tangs and a pair or two of moorish idols drift through the near
+ *      foreground, a leafy sea dragon works the bed below them, and
+ *      starfish, urchins, anemones and clams dot the floor
  *
  * Every animal is sized from a real body length in metres against a depth
  * plane (see METRES / planes below), so the whale shark really is thirty
  * times the tang — the small ones are legible because they swim close to
  * the glass, not because they were drawn big.
+ *
+ * How many of each is not a composition choice either. A fish appears in
+ * the number it is actually found in: the grouper alone because it holds a
+ * territory, the sweetlips in a small loose company, the yellow tangs in a
+ * grazing herd, and the moorish idols strictly in pairs.
  *
  * No dependencies. Respects prefers-reduced-motion and prefers-color-scheme.
  * ------------------------------------------------------------------ */
@@ -86,6 +94,23 @@
       /* lionfish: banded maroon over cream */
       lion: '#a8402f',
       lionPale: '#f6ead6',
+      /* moorish idol: two soot bars over a pearl body, with the yellow
+         saddle over the muzzle and the black-and-white caudal */
+      idolBar: '#1c2433',
+      idolPale: '#f3efe2',
+      idolYellow: '#f2c33a',
+      /* ribboned sweetlips: gold ribbons edged in ink over a cream flank,
+         and the gold fins those ribbons run out onto */
+      sweet: '#efbe2c',
+      sweetPale: '#f7f1de',
+      sweetLine: '#1d2534',
+      /* yellow tang: one flat cadmium yellow, and the white peduncle blade */
+      ytang: '#f4bf14',
+      ytangDeep: '#d59b06',
+      /* coral grouper: vermilion under a scatter of cobalt spots */
+      grouper: '#d4442a',
+      grouperDeep: '#9d2a1a',
+      grouperSpot: '#5fc4e6',
       /* leafy sea dragon: olive-gold body, weedy green appendages */
       dragon: '#c98f3a',
       dragonLeaf: '#8ea84a',
@@ -117,6 +142,17 @@
       tangYellow: '#d0a412',
       lion: '#78291f',
       lionPale: '#d6c8b0',
+      idolBar: '#111823',
+      idolPale: '#d5d0c2',
+      idolYellow: '#cfa11e',
+      sweet: '#c99b17',
+      sweetPale: '#dcd5c0',
+      sweetLine: '#131926',
+      ytang: '#cf9f0c',
+      ytangDeep: '#a67a04',
+      grouper: '#a5321e',
+      grouperDeep: '#711d12',
+      grouperSpot: '#3d93b0',
       dragon: '#96682a',
       dragonLeaf: '#657a34',
       urchin: '#251a38'
@@ -244,9 +280,13 @@
     whaleShark: 9.00,
     blacktip:   1.70,
     wrasse:     1.90,
+    grouper:    0.42,
+    sweetlips:  0.40,
     lionfish:   0.35,
     tang:       0.28,
     dragon:     0.24,
+    idol:       0.20,
+    yellowTang: 0.18,
     reefFish:   0.11
   };
 
@@ -260,8 +300,17 @@
        to move is the full 1.7 m */
     blacktip:   0.55,
     wrasse:     0.42,
+    /* a coral grouper is an ambush predator that spends the day propped on
+       its pectorals over one head of coral — it barely commutes */
+    grouper:    0.12,
+    /* sweetlips hover rather than swim, sculling on the pectorals */
+    sweetlips:  0.16,
     lionfish:   0.07,
     tang:       0.30,
+    /* a grazing Zebrasoma stops at every mouthful, so it covers ground
+       slower than the regal tang shoal that is just passing through */
+    yellowTang: 0.22,
+    idol:       0.26,
     dragon:     0.06,
     reefFish:   0.34
   };
@@ -282,6 +331,7 @@
   var colonies = [], mounds = [], forms = [], fish = [], bubbles = [], critters = [];
   var shark = null, blacktips = [], wrasses = [];
   var lionfishes = [], tangs = [], dragons = [];
+  var groupers = [], sweetlipses = [], yellowtangs = [], idols = [];
   var grain = null;
   var GROWN_AT = 0;
 
@@ -905,6 +955,27 @@
     return m;
   }
 
+  /* The cobalt spotting on a coral grouper. Same principle as the wrasse's
+     scribble: fixed in body-local units, so it is a marking and not a
+     shimmer. The spots are small, evenly scattered and slightly larger over
+     the flank than on the head, which is how the real fish is speckled. */
+  function grouperSpots() {
+    var s = [];
+    for (var i = 0; i < 96; i++) {
+      var x = rr(-0.34, 0.46);
+      s.push({
+        x: x,
+        /* laid over the whole flank and trimmed by the body's own clip,
+           so the spotting reaches the back and the snout the way it does
+           on the animal, instead of pooling in the middle */
+        y: rr(-0.21, 0.21),
+        /* they shrink toward the snout */
+        r: rr(0.009, 0.016) * (x > 0.28 ? 0.75 : 1)
+      });
+    }
+    return s;
+  }
+
   /* A leafy sea dragon's appendages are not scattered decoration — each one
      grows off a named bony spine, and the layout is the single most
      recognisable thing about the animal: a crest over the head, big fronds
@@ -1035,6 +1106,7 @@
     colonies = []; mounds = []; forms = []; fish = []; bubbles = []; waves = [];
     critters = []; blacktips = []; wrasses = [];
     lionfishes = []; tangs = []; dragons = [];
+    groupers = []; sweetlipses = []; yellowtangs = []; idols = [];
     GROWN_AT = 0;
 
     pickFamilies();
@@ -1229,6 +1301,96 @@
       });
     }
 
+    /* ---- the reef proper: the fish that live on the coral, not over it ----
+
+       Three planes between the crest and the foreground pane, near enough
+       that a 20 cm fish is a fish and not a fleck. How many of each is not a
+       composition choice: it is how the animal is actually found. A coral
+       grouper holds a territory alone, a sweetlips hangs in a small loose
+       party under a ledge, and a yellow tang grazes in a herd. */
+
+    /* coral grouper (Cephalopholis miniata): solitary and territorial. Two
+       would be two territories, so on a wide canvas there may be a second —
+       but far away along the reef, never beside the first. Keeping them
+       apart takes three things, because any one of them can be undone: one
+       heading, so they never close on each other; a fixed offset along it;
+       and separate bands, so the still frame a reduced-motion viewer gets
+       can't land them on the same patch of coral either. And because a
+       territory is a territory, neither re-picks a depth on wrap. */
+    var gpPlane = 1.70 * nearBoost;
+    var gpCount = W > 1000 && rnd() < 0.45 ? 2 : 1;
+    var gpDir = rnd() < 0.5 ? -1 : 1;
+    for (var gp = 0; gp < gpCount; gp++) {
+      var gpLen = sizeOf(METRES.grouper, gpPlane) * rr(0.86, 1.14);
+      groupers.push({
+        len: gpLen,
+        /* low down, propped over the coral it ambushes from */
+        y: H * (gp ? rr(0.82, 0.89) : rr(0.72, 0.79)),
+        dir: gpDir,
+        travel: W + gpLen * 2.4,
+        speed: speedOf(MPS.grouper, gpPlane) * rr(0.9, 1.1),
+        travelled: rr(0, W * 0.4) + gp * W * 0.5,
+        rest: 0.24 + gp * 0.42,
+        t0: 3400 + gp * 2600 + rr(0, 1000),
+        phase: rr(0, TAU),
+        spots: grouperSpots()
+      });
+    }
+
+    /* ribboned sweetlips (Plectorhinchus polytaenia): a day fish only in the
+       sense that it is visible — it spends the light hours idling in a small
+       company of three or four in the lee of a coral head, and goes out to
+       feed after dark. So: a small group, loosely spaced, all facing the
+       same way, and barely moving. */
+    var slPlane = 2.00 * nearBoost;
+    var slLen = sizeOf(METRES.sweetlips, slPlane);
+    var slCount = 2 + ri(3);
+    var slDir = rnd() < 0.5 ? -1 : 1;
+    var slBand = H * rr(0.70, 0.84);
+    var slLead = rr(0, W);
+    for (var sl = 0; sl < slCount; sl++) {
+      sweetlipses.push({
+        len: slLen * rr(0.84, 1.14),
+        y: slBand + rr(-1, 1) * slLen * 0.42,
+        dir: slDir,
+        travel: W + slLen * 3.4,
+        speed: speedOf(MPS.sweetlips, slPlane) * rr(0.96, 1.04),
+        /* a loose party, not a queue: they stagger back over a couple of
+           body lengths each and drift out of rank as they go */
+        travelled: slLead - sl * slLen * rr(0.7, 1.9),
+        rest: 0.50 - sl * 0.06,
+        t0: 3800 + sl * 320 + rr(0, 500),
+        phase: rr(0, TAU)
+      });
+    }
+
+    /* yellow tangs graze in a herd — on a Hawaiian reef you meet forty at
+       once, working a rock face together and all turning at the same moment.
+       They get the largest count in the scene and the tightest formation. */
+    var ytPlane = 2.60 * nearBoost;
+    var ytLen = sizeOf(METRES.yellowTang, ytPlane);
+    var ytCount = W > 900 ? 7 + ri(5) : 5 + ri(4);
+    var ytDir = rnd() < 0.5 ? -1 : 1;
+    var ytBand = H * rr(0.64, 0.80);
+    var ytLead = rr(0, W);
+    for (var yt = 0; yt < ytCount; yt++) {
+      /* two ragged ranks rather than one line, which is what a grazing
+         aggregation looks like side-on */
+      var ytRow = yt % 2;
+      yellowtangs.push({
+        len: ytLen * rr(0.80, 1.18),
+        y: ytBand + (ytRow ? 1 : -1) * ytLen * rr(0.15, 0.62),
+        dir: ytDir,
+        travel: W + ytLen * 8,
+        speed: speedOf(MPS.yellowTang, ytPlane) * rr(0.95, 1.05),
+        travelled: ytLead - (yt >> 1) * ytLen * rr(1.1, 2.2) - ytRow * ytLen * 0.6,
+        rest: 0.58 - yt * 0.028,
+        t0: 4000 + yt * 170 + rr(0, 320),
+        phase: rr(0, TAU),
+        bob: ytLen * rr(0.06, 0.16)
+      });
+    }
+
     /* ---- the foreground pane: small animals, close to the glass ---- */
 
     var fg = LAYERS[4].scale * nearBoost;
@@ -1280,6 +1442,39 @@
         phase: rr(0, TAU),
         bob: tangLen * rr(0.05, 0.14)
       });
+    }
+
+    /* moorish idols pair off and stay paired — they are one of the few reef
+       fish you can count on to come past two at a time, swimming close
+       enough that the trailing dorsal filaments overlap. So they are built
+       as pairs, never as a lone fish and never as a school: one pair, or two
+       pairs if there is width for them, and each pair keeps its own band and
+       heading so it stays a pair for as long as the page is open. */
+    var idPairs = W > 1000 ? 1 + ri(2) : 1;
+    var idLen = sizeOf(METRES.idol, fg);
+    for (var ip = 0; ip < idPairs; ip++) {
+      var ipDir = rnd() < 0.5 ? -1 : 1;
+      var ipBand = H * rr(0.58, 0.80);
+      var ipLead = rr(0, W);
+      var ipSpeed = speedOf(MPS.idol, fg) * rr(0.94, 1.06);
+      var ipTravel = W + idLen * 4;
+      for (var im = 0; im < 2; im++) {
+        idols.push({
+          len: idLen * rr(0.88, 1.10),
+          /* one a little above and behind the other, the way a pair holds
+             station: close enough to read as together, offset enough that
+             neither is hidden */
+          y: ipBand + (im ? idLen * rr(0.24, 0.46) : -idLen * rr(0.02, 0.18)),
+          dir: ipDir,
+          travel: ipTravel,
+          speed: ipSpeed,
+          travelled: ipLead - im * idLen * rr(0.5, 1.0),
+          rest: 0.44 + ip * 0.26 - im * 0.05,
+          t0: 3900 + ip * 1500 + im * 260 + rr(0, 500),
+          phase: rr(0, TAU),
+          bob: idLen * rr(0.05, 0.12)
+        });
+      }
     }
 
     /* leafy sea dragon: at 6 cm/s it is the slowest thing in the scene, a
@@ -2701,6 +2896,756 @@
     ctx.restore();
   }
 
+  /* ----------------------------------------------------- moorish idol */
+
+  /* Zanclus cornutus: a disc with a tube for a snout, and the longest
+     dorsal filament on the reef trailing off the back of it. Everything
+     recognisable about the animal is in that silhouette, so the body is
+     kept honestly deep and the filament honestly long — at full stretch it
+     runs most of a body length past the tail. */
+  function idolBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.500, L * 0.056);
+    ctx.quadraticCurveTo(L * 0.474, L * 0.006, L * 0.432, -L * 0.024);
+    ctx.quadraticCurveTo(L * 0.372, -L * 0.070, L * 0.328, -L * 0.152);
+    ctx.bezierCurveTo(L * 0.276, -L * 0.272, L * 0.170, -L * 0.342, L * 0.040, -L * 0.350);
+    ctx.bezierCurveTo(-L * 0.110, -L * 0.358, -L * 0.248, -L * 0.232, -L * 0.316, -L * 0.086);
+    ctx.lineTo(-L * 0.320, L * 0.086);
+    ctx.bezierCurveTo(-L * 0.250, L * 0.252, -L * 0.090, L * 0.372, L * 0.060, L * 0.360);
+    ctx.bezierCurveTo(L * 0.230, L * 0.346, L * 0.358, L * 0.230, L * 0.418, L * 0.112);
+    ctx.quadraticCurveTo(L * 0.468, L * 0.082, L * 0.500, L * 0.056);
+    ctx.closePath();
+  }
+
+  /* A tilted bar across the disc, drawn tall enough to run off both edges
+     so the clip does the shaping. `top` and `bot` are the bar's leading
+     edge where it crosses the back and the belly — it leans forward as it
+     comes down, the way both of the idol's bars do. */
+  function idolBar(L, top, bot, wide) {
+    ctx.beginPath();
+    ctx.moveTo(L * top, -L * 0.5);
+    ctx.lineTo(L * bot, L * 0.5);
+    ctx.lineTo(L * (bot - wide), L * 0.5);
+    ctx.lineTo(L * (top - wide), -L * 0.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawIdol(f, t, dt) {
+    var fade = smooth((t - f.t0) / 1400);
+    if (fade <= 0) return;
+    /* pairs hold their band and heading, or they stop being a pair */
+    advance(f, dt, 0, 0, 0.45);
+
+    var L = f.len;
+    var x = f.dir > 0 ? -L * 1.6 + f.travelled : W + L * 1.6 - f.travelled;
+    var beat = reduced ? 0 : Math.sin(t * 0.0044 + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0010 + f.phase) * f.bob;
+    var sw = beat * L * 0.05;
+
+    var bar = hex2rgb(pal.idolBar);
+    var pale = hex2rgb(pal.idolPale);
+    var yell = hex2rgb(pal.idolYellow);
+
+    ctx.save();
+    ctx.translate(x, f.y + bob);
+    ctx.scale(f.dir, 1);
+    ctx.rotate(beat * 0.03);
+
+    /* the filament: the third dorsal spine, drawn out into a ribbon that
+       streams astern and lags behind the body's beat. It goes down first,
+       behind everything, because the fin it grows from is behind the fish */
+    var fx0 = L * 0.070, fy0 = -L * 0.340;
+    var lag = reduced ? 0 : Math.sin(t * 0.0030 + f.phase - 0.9);
+    var FN = 16, up = [], dn = [];
+    for (var fi = 0; fi <= FN; fi++) {
+      var u = fi / FN;
+      var px = fx0 - u * L * 0.95;
+      var py = fy0 - Math.sin(u * 2.2) * L * 0.26
+        + lag * Math.sin(u * 3.6) * L * 0.075 * u;
+      var hw = L * 0.028 * (1 - u * 0.9);
+      up.push([px, py - hw]);
+      dn.push([px, py + hw]);
+    }
+    ctx.fillStyle = rgba(pale, 0.9 * fade);
+    ctx.beginPath();
+    ctx.moveTo(up[0][0], up[0][1]);
+    for (var fu = 1; fu <= FN; fu++) ctx.lineTo(up[fu][0], up[fu][1]);
+    for (var fd = FN; fd >= 0; fd--) ctx.lineTo(dn[fd][0], dn[fd][1]);
+    ctx.closePath();
+    ctx.fill();
+
+    /* caudal: small, dark, with a pale trailing edge */
+    ctx.fillStyle = rgba(bar, 0.95 * fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.290, -L * 0.075);
+    ctx.quadraticCurveTo(-L * 0.400, -L * 0.150 + sw * 0.6, -L * 0.492, -L * 0.180 + sw);
+    ctx.quadraticCurveTo(-L * 0.430, sw * 0.5, -L * 0.492, L * 0.180 + sw);
+    ctx.quadraticCurveTo(-L * 0.400, L * 0.150 + sw * 0.6, -L * 0.290, L * 0.075);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba(pale, 0.75 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.016);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.492, -L * 0.180 + sw);
+    ctx.quadraticCurveTo(-L * 0.430, sw * 0.5, -L * 0.492, L * 0.180 + sw);
+    ctx.stroke();
+
+    /* the rear dorsal and anal lobes, which carry the second bar out off
+       the body — on an idol the black does not stop at the skin */
+    ctx.fillStyle = rgba(bar, 0.92 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.010, -L * 0.330);
+    ctx.quadraticCurveTo(-L * 0.140, -L * 0.430, -L * 0.286, -L * 0.300);
+    ctx.lineTo(-L * 0.314, -L * 0.100);
+    ctx.quadraticCurveTo(-L * 0.190, -L * 0.290, L * 0.010, -L * 0.330);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.020, L * 0.352);
+    ctx.quadraticCurveTo(-L * 0.170, L * 0.400, -L * 0.284, L * 0.280);
+    ctx.lineTo(-L * 0.316, L * 0.100);
+    ctx.quadraticCurveTo(-L * 0.190, L * 0.290, -L * 0.020, L * 0.352);
+    ctx.closePath();
+    ctx.fill();
+
+    /* the long black pelvics, hanging under the chest and swinging with
+       the beat */
+    ctx.save();
+    ctx.translate(L * 0.185, L * 0.270);
+    ctx.rotate(0.18 + beat * 0.12);
+    ctx.fillStyle = rgba(bar, 0.9 * fade);
+    ctx.beginPath();
+    ctx.moveTo(0, -L * 0.030);
+    ctx.quadraticCurveTo(L * 0.010, L * 0.130, -L * 0.060, L * 0.240);
+    ctx.quadraticCurveTo(-L * 0.108, L * 0.150, -L * 0.086, -L * 0.020);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    idolBody(L);
+    ctx.fillStyle = rgba(pale, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+
+    /* the two bars. The first swallows the eye and the pectoral base, the
+       second takes the whole back half; between them the pale band warms
+       toward yellow as it runs aft, and behind the second bar the peduncle
+       comes back pale and yellow again before the black tail */
+    ctx.fillStyle = rgba(mix(pale, yell, 0.38), 0.62 * fade);
+    ctx.fillRect(-L * 0.02, -L * 0.5, L * 0.20, L);
+    ctx.fillStyle = rgba(mix(pale, yell, 0.70), 0.72 * fade);
+    ctx.fillRect(-L * 0.330, -L * 0.5, L * 0.075, L);
+    ctx.fillStyle = rgba(bar, 0.95 * fade);
+    idolBar(L, 0.300, 0.382, 0.185);
+    idolBar(L, -0.060, 0.040, 0.250);
+
+    /* the yellow saddle: a band laid across the snout behind the lips,
+       shaped by the same clip as the bars, and the black lips in front */
+    ctx.fillStyle = rgba(yell, 0.95 * fade);
+    idolBar(L, 0.505, 0.575, 0.115);
+    ctx.fillStyle = rgba(bar, 0.9 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.520, L * 0.100);
+    ctx.lineTo(L * 0.520, L * 0.010);
+    ctx.lineTo(L * 0.452, L * 0.062);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    /* pectoral: a small clear-yellow paddle over the first bar */
+    ctx.save();
+    ctx.translate(L * 0.215, L * 0.105);
+    ctx.rotate(0.42 + beat * 0.24);
+    ctx.fillStyle = rgba(yell, 0.28 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.030, L * 0.042, L * 0.058, L * 0.024, 0.9, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* eye: buried in the black bar, so it takes a pale ring to be found —
+       which is exactly the trick the bar is playing on a predator */
+    ctx.fillStyle = rgba(mix(bar, pale, 0.42), 0.75 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.306, -L * 0.086, L * 0.042, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(bar, 0.98 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.306, -L * 0.086, L * 0.030, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(pale, 0.85 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.318, -L * 0.098, L * 0.012, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ------------------------------------------------ ribboned sweetlips */
+
+  /* Plectorhinchus polytaenia: an oblong grunt with rubbery lips and, in
+     place of the bars everything else on this reef wears, ribbons — six or
+     seven gold stripes edged in ink, running the whole length of the fish
+     and out onto the fins. */
+  function sweetBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.500, L * 0.024);
+    ctx.quadraticCurveTo(L * 0.480, -L * 0.040, L * 0.428, -L * 0.082);
+    ctx.quadraticCurveTo(L * 0.340, -L * 0.152, L * 0.230, -L * 0.188);
+    ctx.bezierCurveTo(L * 0.060, -L * 0.228, -L * 0.110, -L * 0.206, -L * 0.232, -L * 0.130);
+    ctx.quadraticCurveTo(-L * 0.288, -L * 0.094, -L * 0.302, -L * 0.055);
+    ctx.lineTo(-L * 0.306, L * 0.055);
+    ctx.quadraticCurveTo(-L * 0.282, L * 0.106, -L * 0.222, L * 0.146);
+    ctx.bezierCurveTo(-L * 0.080, L * 0.230, L * 0.110, L * 0.242, L * 0.272, L * 0.190);
+    ctx.quadraticCurveTo(L * 0.402, L * 0.146, L * 0.472, L * 0.082);
+    ctx.quadraticCurveTo(L * 0.496, L * 0.058, L * 0.500, L * 0.024);
+    ctx.closePath();
+  }
+
+  /* One ribbon: a shallow arc from the snout to the peduncle. Stroked
+     twice, wide in ink and narrow in gold, which is how the stripe gets its
+     edging for the price of two passes — but the two passes are run over
+     the whole set rather than per stripe, because the ribbons converge at
+     the head and a per-stripe edge would print over its neighbour's gold. */
+  /* Where the fin speckling goes, one entry per unpaired fin: the strip it
+     is scattered along and how many spots that strip carries. */
+  var SWEET_SPOTS = [
+    { x0: -0.26, x1:  0.19, y0: -0.300, y1: -0.185, n: 11 },   /* dorsal */
+    { x0: -0.27, x1: -0.07, y0:  0.280, y1:  0.185, n:  5 },   /* anal */
+    { x0: -0.46, x1: -0.30, y0: -0.150, y1:  0.150, n:  7 }    /* caudal */
+  ];
+
+  /* The three unpaired fins in one path: the long dorsal, spiny in front and
+     soft behind; the anal; and the shallowly forked caudal, which is the
+     only one of the three that swings with the beat. */
+  function sweetFins(L, sw) {
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.280, -L * 0.060);
+    ctx.quadraticCurveTo(-L * 0.390, -L * 0.130 + sw * 0.6, -L * 0.482, -L * 0.190 + sw);
+    ctx.quadraticCurveTo(-L * 0.400, sw * 0.5, -L * 0.482, L * 0.190 + sw);
+    ctx.quadraticCurveTo(-L * 0.390, L * 0.130 + sw * 0.6, -L * 0.280, L * 0.060);
+    ctx.closePath();
+
+    ctx.moveTo(L * 0.212, -L * 0.180);
+    ctx.quadraticCurveTo(L * 0.120, -L * 0.320, -L * 0.020, -L * 0.312);
+    ctx.quadraticCurveTo(-L * 0.150, -L * 0.304, -L * 0.252, -L * 0.180);
+    ctx.lineTo(-L * 0.290, -L * 0.078);
+    ctx.bezierCurveTo(-L * 0.130, -L * 0.212, L * 0.060, -L * 0.230, L * 0.214, -L * 0.166);
+    ctx.closePath();
+
+    ctx.moveTo(-L * 0.060, L * 0.226);
+    ctx.quadraticCurveTo(-L * 0.140, L * 0.310, -L * 0.240, L * 0.246);
+    ctx.lineTo(-L * 0.292, L * 0.086);
+    ctx.quadraticCurveTo(-L * 0.170, L * 0.200, -L * 0.058, L * 0.212);
+    ctx.closePath();
+  }
+
+  function sweetRibbon(L, y0, y1, col, wide, alpha) {
+    ctx.strokeStyle = rgba(col, alpha);
+    ctx.lineWidth = L * wide;
+    ctx.beginPath();
+    ctx.moveTo(L * 0.470, L * y0);
+    ctx.bezierCurveTo(L * 0.240, L * (y0 * 0.55 + y1 * 0.45),
+      L * 0.000, L * (y0 * 0.25 + y1 * 0.75), -L * 0.310, L * y1);
+    ctx.stroke();
+  }
+
+  function drawSweetlips(f, t, dt) {
+    var fade = smooth((t - f.t0) / 1600);
+    if (fade <= 0) return;
+    /* the party keeps its ledge: hold the band and the heading */
+    advance(f, dt, 0, 0, 0.5);
+
+    var L = f.len;
+    var x = f.dir > 0 ? -L * 1.4 + f.travelled : W + L * 1.4 - f.travelled;
+    /* a hovering fish, not a swimming one: the tail idles, the pectorals
+       do the work, and the whole animal rocks a degree or two */
+    var beat = reduced ? 0 : Math.sin(t * 0.0026 + f.phase);
+    var scull = reduced ? 0 : Math.sin(t * 0.0068 + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.00075 + f.phase) * L * 0.035;
+    var sw = beat * L * 0.045;
+
+    var gold = hex2rgb(pal.sweet);
+    var pale = hex2rgb(pal.sweetPale);
+    var ink = hex2rgb(pal.sweetLine);
+
+    ctx.save();
+    ctx.translate(x, f.y + bob);
+    ctx.scale(f.dir, 1);
+    ctx.rotate(beat * 0.022);
+
+    /* caudal, dorsal and anal go down as one path so the speckling can be
+       clipped to them — spots that float off the fin edge read as debris in
+       the water rather than as markings on the animal */
+    sweetFins(L, sw);
+    ctx.fillStyle = rgba(gold, 0.95 * fade);
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = rgba(ink, 0.72 * fade);
+    /* scattered over each fin's own span rather than over one bounding box,
+       or the clip throws most of them away and the few survivors clump */
+    for (var fb = 0; fb < SWEET_SPOTS.length; fb++) {
+      var band = SWEET_SPOTS[fb];
+      for (var sp = 0; sp < band.n; sp++) {
+        var u = (sp + 0.5) / band.n;
+        var jit = ((sp * 0.6180) % 1) - 0.5;
+        ctx.beginPath();
+        ctx.arc(L * (band.x0 + (band.x1 - band.x0) * u),
+          L * (band.y0 + (band.y1 - band.y0) * (0.5 + jit * 1.7)),
+          L * 0.017, 0, TAU);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    sweetBody(L);
+    ctx.fillStyle = rgba(pale, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    /* five ribbons, converging on the snout and fanning as they run aft —
+       the stripes follow the body's taper rather than sitting parallel. The
+       ink is only a hair wider than the gold: these are gold bands edged in
+       black over a cream flank, not black bands with gold in them. */
+    var rb, v;
+    for (rb = 0; rb < 5; rb++) {
+      v = rb / 4;
+      sweetRibbon(L, -0.085 + v * 0.170, -0.200 + v * 0.400, ink, 0.054, 0.88 * fade);
+    }
+    for (rb = 0; rb < 5; rb++) {
+      v = rb / 4;
+      sweetRibbon(L, -0.085 + v * 0.170, -0.200 + v * 0.400, gold, 0.046, 0.96 * fade);
+    }
+    /* and the head, where the ribbons break up into the throat stripes */
+    ctx.strokeStyle = rgba(ink, 0.8 * fade);
+    ctx.lineWidth = L * 0.016;
+    ctx.lineCap = 'round';
+    for (var hb = 0; hb < 3; hb++) {
+      ctx.beginPath();
+      ctx.moveTo(L * (0.500 - hb * 0.010), L * (0.030 + hb * 0.052));
+      ctx.quadraticCurveTo(L * 0.400, L * (0.070 + hb * 0.060), L * 0.300, L * (0.130 + hb * 0.055));
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* the rubbery lips a sweetlips is named for */
+    ctx.fillStyle = rgba(mix(gold, pale, 0.4), 0.95 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.482, L * 0.030, L * 0.036, L * 0.030, -0.5, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(ink, 0.75 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.011);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.502, L * 0.014);
+    ctx.quadraticCurveTo(L * 0.462, L * 0.046, L * 0.436, L * 0.036);
+    ctx.stroke();
+
+    /* pectoral, sculling — this is the fin that holds a hovering fish still */
+    ctx.save();
+    ctx.translate(L * 0.230, L * 0.090);
+    ctx.rotate(0.55 + scull * 0.30);
+    ctx.fillStyle = rgba(mix(gold, pale, 0.5), 0.55 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.050, L * 0.055, L * 0.098, L * 0.038, 0.85, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(ink, 0.28 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.006);
+    for (var pw = 0; pw < 4; pw++) {
+      var pwa = 0.60 + pw * 0.22;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(pwa) * L * 0.14, Math.sin(pwa) * L * 0.15);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* eye, sitting in the top ribbon */
+    ctx.fillStyle = rgba(pale, 0.9 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.376, -L * 0.070, L * 0.040, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(ink, 0.96 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.376, -L * 0.070, L * 0.028, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(pale, 0.8 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.387, -L * 0.081, L * 0.011, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* --------------------------------------------------------- yellow tang */
+
+  /* Zebrasoma flavescens: a kite of one flat cadmium yellow. There is no
+     pattern to draw, so the whole animal has to be carried by the outline —
+     the sail-high dorsal and anal, the drawn-out snout it uses to pick
+     algae out of crevices, and the white blade at the tail base. */
+  function yellowTangBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.500, L * 0.062);
+    ctx.quadraticCurveTo(L * 0.452, L * 0.012, L * 0.402, -L * 0.042);
+    ctx.quadraticCurveTo(L * 0.332, -L * 0.114, L * 0.272, -L * 0.206);
+    ctx.bezierCurveTo(L * 0.160, -L * 0.322, L * 0.000, -L * 0.352, -L * 0.120, -L * 0.292);
+    ctx.quadraticCurveTo(-L * 0.216, -L * 0.242, -L * 0.256, -L * 0.080);
+    ctx.lineTo(-L * 0.262, L * 0.080);
+    ctx.quadraticCurveTo(-L * 0.220, L * 0.236, -L * 0.120, L * 0.296);
+    ctx.bezierCurveTo(L * 0.010, L * 0.364, L * 0.190, L * 0.302, L * 0.300, L * 0.192);
+    ctx.quadraticCurveTo(L * 0.400, L * 0.110, L * 0.442, L * 0.080);
+    ctx.quadraticCurveTo(L * 0.482, L * 0.070, L * 0.500, L * 0.062);
+    ctx.closePath();
+  }
+
+  function drawYellowTang(f, t, dt) {
+    var fade = smooth((t - f.t0) / 1300);
+    if (fade <= 0) return;
+    /* the herd holds one band and one heading */
+    advance(f, dt, 0, 0, 0.5);
+
+    var L = f.len;
+    var x = f.dir > 0 ? -L * 1.3 + f.travelled : W + L * 1.3 - f.travelled;
+    var beat = reduced ? 0 : Math.sin(t * 0.0058 + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0012 + f.phase) * f.bob;
+    /* a grazer nods at the rock every few seconds and then levels off */
+    var graze = reduced ? 0 : Math.max(0, Math.sin(t * 0.00042 + f.phase * 1.7)) * 0.22;
+    var sw = beat * L * 0.05;
+
+    var yel = hex2rgb(pal.ytang);
+    var deep = hex2rgb(pal.ytangDeep);
+    var cream = hex2rgb(pal.cream);
+
+    ctx.save();
+    ctx.translate(x, f.y + bob);
+    ctx.scale(f.dir, 1);
+    ctx.rotate(beat * 0.03 + graze);
+
+    /* caudal: shallow-lunate and the same yellow as the rest */
+    ctx.fillStyle = rgba(yel, fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.235, -L * 0.070);
+    ctx.quadraticCurveTo(-L * 0.360, -L * 0.150 + sw * 0.6, -L * 0.492, -L * 0.198 + sw);
+    ctx.quadraticCurveTo(-L * 0.378, sw * 0.5, -L * 0.492, L * 0.198 + sw);
+    ctx.quadraticCurveTo(-L * 0.360, L * 0.150 + sw * 0.6, -L * 0.235, L * 0.070);
+    ctx.closePath();
+    ctx.fill();
+
+    /* the two sails. A Zebrasoma's dorsal and anal are as deep as its body
+       again — hold them back and the fish reads as any other yellow disc */
+    ctx.fillStyle = rgba(yel, fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.262, -L * 0.212);
+    ctx.bezierCurveTo(L * 0.170, -L * 0.480, L * 0.020, -L * 0.610, -L * 0.090, -L * 0.556);
+    ctx.quadraticCurveTo(-L * 0.196, -L * 0.500, -L * 0.248, -L * 0.100);
+    ctx.bezierCurveTo(-L * 0.180, -L * 0.290, L * 0.050, -L * 0.348, L * 0.264, -L * 0.196);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(L * 0.180, L * 0.256);
+    ctx.bezierCurveTo(L * 0.080, L * 0.470, -L * 0.040, L * 0.548, -L * 0.140, L * 0.486);
+    ctx.quadraticCurveTo(-L * 0.226, L * 0.430, -L * 0.256, L * 0.100);
+    ctx.bezierCurveTo(-L * 0.180, L * 0.290, L * 0.020, L * 0.336, L * 0.182, L * 0.240);
+    ctx.closePath();
+    ctx.fill();
+
+    /* fin rays: a slightly deeper yellow, fanning out of the body into the
+       membranes. The only detail the fish has, so it does the shading too */
+    ctx.strokeStyle = rgba(deep, 0.5 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.008);
+    ctx.lineCap = 'round';
+    for (var ry = 0; ry < 9; ry++) {
+      var rv = ry / 8;
+      ctx.beginPath();
+      ctx.moveTo(L * (0.232 - rv * 0.430), -L * (0.196 - rv * 0.070));
+      ctx.lineTo(L * (0.196 - rv * 0.380), -L * (0.400 + Math.sin(rv * 3.0) * 0.140));
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(L * (0.150 - rv * 0.380), L * (0.236 - rv * 0.100));
+      ctx.lineTo(L * (0.120 - rv * 0.340), L * (0.390 + Math.sin(rv * 3.0) * 0.110));
+      ctx.stroke();
+    }
+
+    yellowTangBody(L);
+    ctx.fillStyle = rgba(yel, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    /* a faint darker wash along the back and over the peduncle keeps a
+       flat yellow disc from going papery */
+    ctx.fillStyle = rgba(deep, 0.22 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.020, -L * 0.230, L * 0.240, L * 0.090, -0.10, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(yel, cream, 0.45), 0.14 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.150, L * 0.055, L * 0.150, L * 0.058, -0.20, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* pectoral, almost clear */
+    ctx.save();
+    ctx.translate(L * 0.212, L * 0.062);
+    ctx.rotate(0.42 + beat * 0.30);
+    ctx.fillStyle = rgba(mix(yel, cream, 0.5), 0.35 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.042, L * 0.052, L * 0.082, L * 0.032, 0.88, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* the scalpel — a surgeonfish is a surgeonfish because of this blade,
+       and on a yellow tang it is the one white mark on the animal */
+    ctx.fillStyle = rgba(cream, 0.95 * fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.180, L * 0.030);
+    ctx.lineTo(-L * 0.248, L * 0.050);
+    ctx.lineTo(-L * 0.180, L * 0.062);
+    ctx.closePath();
+    ctx.fill();
+
+    /* the snout: pale at the tip, with the small nipping mouth */
+    ctx.fillStyle = rgba(mix(yel, cream, 0.35), 0.75 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.500, L * 0.062);
+    ctx.quadraticCurveTo(L * 0.452, L * 0.012, L * 0.408, -L * 0.036);
+    ctx.lineTo(L * 0.436, L * 0.086);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba(deep, 0.85 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.013);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.502, L * 0.062);
+    ctx.lineTo(L * 0.466, L * 0.066);
+    ctx.stroke();
+
+    /* eye */
+    ctx.fillStyle = rgba(deep, 0.9 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.286, -L * 0.108, L * 0.042, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(hex2rgb(pal.tangDark), 0.95 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.286, -L * 0.108, L * 0.030, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(cream, 0.8 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.298, -L * 0.119, L * 0.011, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* -------------------------------------------------------- coral grouper */
+
+  /* Cephalopholis miniata, the coral hind: a heavy vermilion bass under a
+     scatter of cobalt spots, built round a mouth that can take a fish half
+     its own length. It hangs over the coral on its pectorals and moves in
+     short unhurried shifts, which is what the drawing has to say. */
+  function grouperBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.480, L * 0.010);
+    ctx.quadraticCurveTo(L * 0.442, -L * 0.062, L * 0.380, -L * 0.100);
+    ctx.bezierCurveTo(L * 0.280, -L * 0.154, L * 0.140, -L * 0.180, L * 0.010, -L * 0.176);
+    ctx.bezierCurveTo(-L * 0.130, -L * 0.170, -L * 0.240, -L * 0.132, -L * 0.312, -L * 0.080);
+    ctx.lineTo(-L * 0.322, L * 0.076);
+    ctx.bezierCurveTo(-L * 0.240, L * 0.130, -L * 0.120, L * 0.172, L * 0.020, L * 0.180);
+    ctx.bezierCurveTo(L * 0.170, L * 0.188, L * 0.322, L * 0.152, L * 0.412, L * 0.094);
+    ctx.quadraticCurveTo(L * 0.468, L * 0.056, L * 0.480, L * 0.010);
+    ctx.closePath();
+  }
+
+  function drawGrouper(f, t, dt) {
+    var fade = smooth((t - f.t0) / 1600);
+    if (fade <= 0) return;
+    /* it holds its band and its heading — this is a fish with an address */
+    advance(f, dt, 0, 0, 0.4);
+
+    var L = f.len;
+    var x = f.dir > 0 ? -L * 1.4 + f.travelled : W + L * 1.4 - f.travelled;
+    /* it does not cruise: it sits, then shifts. The tail is mostly still
+       and the pectorals do the holding */
+    var beat = reduced ? 0 : Math.sin(t * 0.0022 + f.phase);
+    var scull = reduced ? 0 : Math.sin(t * 0.0075 + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.00062 + f.phase) * L * 0.030;
+    var sw = beat * L * 0.040;
+
+    var red = hex2rgb(pal.grouper);
+    var deep = hex2rgb(pal.grouperDeep);
+    var spot = hex2rgb(pal.grouperSpot);
+    var cream = hex2rgb(pal.cream);
+
+    ctx.save();
+    ctx.translate(x, f.y + bob);
+    ctx.scale(f.dir, 1);
+    ctx.rotate(beat * 0.018);
+
+    /* the far pectoral, dimmed */
+    ctx.save();
+    ctx.globalAlpha = 0.45 * fade;
+    ctx.translate(L * 0.230, L * 0.030);
+    ctx.rotate(-0.30 - scull * 0.16);
+    ctx.fillStyle = rgba(deep, 1);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.070, L * 0.040, L * 0.110, L * 0.046, 0.55, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* the four fins that carry the spotting go down as one path: the
+       rounded caudal a hind accelerates on rather than cruises with, the
+       long dorsal with its low spiny front and rounded soft lobe, and the
+       rounded anal and pelvic */
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.290, -L * 0.080);
+    ctx.bezierCurveTo(-L * 0.420, -L * 0.190 + sw, -L * 0.500, -L * 0.130 + sw, -L * 0.500, sw);
+    ctx.bezierCurveTo(-L * 0.500, L * 0.130 + sw, -L * 0.420, L * 0.190 + sw, -L * 0.290, L * 0.080);
+    ctx.closePath();
+
+    ctx.moveTo(L * 0.300, -L * 0.128);
+    ctx.quadraticCurveTo(L * 0.150, -L * 0.246, L * 0.010, -L * 0.250);
+    ctx.bezierCurveTo(-L * 0.120, -L * 0.254, -L * 0.220, -L * 0.232, -L * 0.292, -L * 0.130);
+    ctx.lineTo(-L * 0.310, -L * 0.086);
+    ctx.bezierCurveTo(-L * 0.140, -L * 0.190, L * 0.100, -L * 0.200, L * 0.302, -L * 0.116);
+    ctx.closePath();
+
+    ctx.moveTo(-L * 0.060, L * 0.176);
+    ctx.quadraticCurveTo(-L * 0.150, L * 0.290, -L * 0.256, L * 0.240);
+    ctx.lineTo(-L * 0.300, L * 0.096);
+    ctx.quadraticCurveTo(-L * 0.180, L * 0.190, -L * 0.058, L * 0.170);
+    ctx.closePath();
+
+    ctx.moveTo(L * 0.190, L * 0.150);
+    ctx.quadraticCurveTo(L * 0.150, L * 0.290, L * 0.050, L * 0.290);
+    ctx.quadraticCurveTo(L * 0.080, L * 0.190, L * 0.096, L * 0.140);
+    ctx.closePath();
+
+    ctx.fillStyle = rgba(red, 0.95 * fade);
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    /* the spots run out onto the fins too, finer there than on the flank */
+    for (var fs = 0; fs < 44; fs++) {
+      var fsx = -L * 0.50 + L * 0.72 * ((fs * 0.3719) % 1);
+      var fsy = (fs % 2 ? 1 : -1) * L * (0.09 + 0.20 * ((fs * 0.6180) % 1));
+      ctx.fillStyle = rgba(deep, 0.45 * fade);
+      ctx.beginPath();
+      ctx.arc(fsx, fsy, L * 0.017, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = rgba(spot, 0.8 * fade);
+      ctx.beginPath();
+      ctx.arc(fsx, fsy, L * 0.011, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    /* the spine tips standing proud of the membrane */
+    ctx.strokeStyle = rgba(deep, 0.6 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.008);
+    ctx.lineCap = 'round';
+    for (var gs = 0; gs < 9; gs++) {
+      var gv = gs / 8;
+      ctx.beginPath();
+      ctx.moveTo(L * (0.290 - gv * 0.290), -L * (0.130 + gv * 0.030));
+      ctx.lineTo(L * (0.286 - gv * 0.286), -L * (0.190 + gv * 0.048));
+      ctx.stroke();
+    }
+
+    grouperBody(L);
+    ctx.fillStyle = rgba(red, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    /* the back darkens toward the dorsal, the belly lifts a little */
+    ctx.fillStyle = rgba(deep, 0.4 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.030, -L * 0.140, L * 0.320, L * 0.090, -0.06, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(red, cream, 0.35), 0.25 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.070, L * 0.130, L * 0.280, L * 0.070, 0.04, 0, TAU);
+    ctx.fill();
+
+    /* and the spots — small, bright and everywhere, each with a thin dark
+       ring, which is what makes them sit on the fish instead of over it */
+    for (var sq = 0; sq < f.spots.length; sq++) {
+      var s = f.spots[sq];
+      ctx.fillStyle = rgba(deep, 0.5 * fade);
+      ctx.beginPath();
+      ctx.arc(L * s.x, L * s.y, L * s.r * 1.4, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = rgba(spot, 0.9 * fade);
+      ctx.beginPath();
+      ctx.arc(L * s.x, L * s.y, L * s.r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    /* the mouth: big, oblique, and hinged back past the eye. This is the
+       whole reason the head is shaped the way it is */
+    ctx.strokeStyle = rgba(deep, 0.9 * fade);
+    ctx.lineWidth = Math.max(0.7, L * 0.014);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(L * 0.482, L * 0.014);
+    ctx.quadraticCurveTo(L * 0.420, L * 0.070, L * 0.322, L * 0.090);
+    ctx.stroke();
+    /* the lower jaw, jutting slightly past the upper */
+    ctx.fillStyle = rgba(mix(red, cream, 0.2), 0.9 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.486, L * 0.030);
+    ctx.quadraticCurveTo(L * 0.440, L * 0.078, L * 0.376, L * 0.100);
+    ctx.quadraticCurveTo(L * 0.436, L * 0.104, L * 0.470, L * 0.070);
+    ctx.closePath();
+    ctx.fill();
+    /* the gill cover's trailing edge */
+    ctx.strokeStyle = rgba(deep, 0.45 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.009);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.268, -L * 0.150);
+    ctx.quadraticCurveTo(L * 0.212, -L * 0.020, L * 0.244, L * 0.140);
+    ctx.stroke();
+
+    /* near pectoral, sculling to hold station */
+    ctx.save();
+    ctx.translate(L * 0.242, L * 0.048);
+    ctx.rotate(0.34 + scull * 0.22);
+    ctx.fillStyle = rgba(mix(red, cream, 0.30), 0.6 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.078, L * 0.046, L * 0.122, L * 0.050, 0.52, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(deep, 0.4 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.006);
+    for (var gr = 0; gr < 5; gr++) {
+      var ga = 0.16 + gr * 0.20;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(ga) * L * 0.19, Math.sin(ga) * L * 0.17);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* eye: a grouper's is large, forward and pale-rimmed, sat high on the
+       head where an ambush predator wants it */
+    ctx.fillStyle = rgba(mix(spot, cream, 0.35), 0.75 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.352, -L * 0.062, L * 0.048, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(deep, [0, 0, 0], 0.45), 0.95 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.354, -L * 0.062, L * 0.031, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(cream, 0.8 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.366, -L * 0.074, L * 0.012, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   /* --------------------------------------------------- leafy sea dragon */
 
   /* Phycodurus eques, side-on, in the posture it actually holds while it
@@ -3386,13 +4331,19 @@
       if (li === 2) {
         for (var bk = 0; bk < blacktips.length; bk++) drawBlacktip(blacktips[bk], t, dt);
       }
-      /* the wrasse works the crest, in front of the near coral */
+      /* the wrasse works the crest, in front of the near coral — and then
+         the reef fish proper, in plane order so the nearer ones overlap the
+         farther: grouper, sweetlips, then the yellow tang herd */
       if (li === 3) {
         for (var wq = 0; wq < wrasses.length; wq++) drawWrasse(wrasses[wq], t, dt);
+        for (var gq = 0; gq < groupers.length; gq++) drawGrouper(groupers[gq], t, dt);
+        for (var sq = 0; sq < sweetlipses.length; sq++) drawSweetlips(sweetlipses[sq], t, dt);
+        for (var yq = 0; yq < yellowtangs.length; yq++) drawYellowTang(yellowtangs[yq], t, dt);
       }
       /* and the foreground pane, closest of all */
       if (li === 4) {
         for (var dq = 0; dq < dragons.length; dq++) drawDragon(dragons[dq], t, dt);
+        for (var iq = 0; iq < idols.length; iq++) drawIdol(idols[iq], t, dt);
         for (var tq = 0; tq < tangs.length; tq++) drawTang(tangs[tq], t, dt);
         for (var lq = 0; lq < lionfishes.length; lq++) drawLionfish(lionfishes[lq], t, dt);
       }
