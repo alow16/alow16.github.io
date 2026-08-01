@@ -13,9 +13,16 @@
  *   3. bright finger corals, kelp blades and mounds grow in up front,
  *      cream dots beading along them as they finish
  *   4. wildlife arrives: fish schools fade in and start swimming, bubbles
- *      trickle off the reef, a whale shark, hammerheads, an ocean sunfish
- *      and stingrays glide through the mid-water and the sea bed, and
- *      starfish, urchins, anemones and clams dot the floor
+ *      trickle off the reef, a whale shark, blacktip reef sharks and
+ *      stingrays cross the mid-water, a humphead wrasse patrols the reef
+ *      crest, a lionfish, a shoal of regal blue tangs and a leafy sea
+ *      dragon drift through the near foreground, and starfish, urchins,
+ *      anemones and clams dot the floor
+ *
+ * Every animal is sized from a real body length in metres against a depth
+ * plane (see METRES / planes below), so the whale shark really is thirty
+ * times the tang — the small ones are legible because they swim close to
+ * the glass, not because they were drawn big.
  *
  * No dependencies. Respects prefers-reduced-motion and prefers-color-scheme.
  * ------------------------------------------------------------------ */
@@ -51,12 +58,28 @@
          so the shark reads as its own body rather than merging into either */
       shark: '#143a4f',
       sharkBelly: '#dfe9e6',
-      hammerhead: '#33586a',
-      hammerheadBelly: '#cddad7',
+      /* blacktip reef shark: sandy grey-brown above, and the two tones
+         that make the animal — soot-black fin tips over a chalk band */
+      blacktip: '#8c8168',
+      blacktipBelly: '#efe6d2',
+      finTip: '#1b2430',
+      finBand: '#f7f2e6',
+      /* humphead wrasse: teal-green with a paler vermiculate scribble */
+      wrasse: '#1f8f86',
+      wrasseFin: '#2aa79b',
+      wrasseLine: '#9fe3d3',
+      /* regal blue tang: cobalt, ink-black palette marking, yellow tail */
+      tang: '#2a63d6',
+      tangDark: '#101a2e',
+      tangYellow: '#f5c518',
+      /* lionfish: banded maroon over cream */
+      lion: '#a8402f',
+      lionPale: '#f6ead6',
+      /* leafy sea dragon: olive-gold body, weedy green appendages */
+      dragon: '#c98f3a',
+      dragonLeaf: '#8ea84a',
       ray: '#9c7a52',
       rayBelly: '#e6d9bd',
-      sunfish: '#a9b7b5',
-      sunfishBelly: '#dbe4e2',
       urchin: '#3a2a52'
     },
     dark: {
@@ -71,12 +94,22 @@
       fish: ['#7048ad', '#ad3b7f', '#c9a833', '#2f86ad'],
       shark: '#0d2a3a',
       sharkBelly: '#b7c3c2',
-      hammerhead: '#1f3944',
-      hammerheadBelly: '#8fa19e',
+      blacktip: '#5f5849',
+      blacktipBelly: '#c3b9a3',
+      finTip: '#0c121a',
+      finBand: '#d8d1c1',
+      wrasse: '#146059',
+      wrasseFin: '#18776d',
+      wrasseLine: '#63b3a2',
+      tang: '#1b47a0',
+      tangDark: '#080d18',
+      tangYellow: '#d0a412',
+      lion: '#78291f',
+      lionPale: '#d6c8b0',
+      dragon: '#96682a',
+      dragonLeaf: '#657a34',
       ray: '#5e4930',
       rayBelly: '#a99878',
-      sunfish: '#69746f',
-      sunfishBelly: '#9aa5a1',
       urchin: '#251a38'
     }
   };
@@ -141,18 +174,63 @@
 
   /* Far to near. `floor` is the bed as a fraction of canvas height, so
      values over 1 root the biggest shapes just below the fold. Layers 0-1
-     are drawn as deep silhouettes, 2-3 in full colour. */
+     are drawn as deep silhouettes, 2-3 in full colour. Layer 4 grows
+     nothing — it is the pane of water between the reef and the viewer,
+     where the small, ornate animals drift close enough to be read. */
   var LAYERS = [
     { scale: 0.46, veil: 0.20, floor: 0.885, silhouette: true,  count: 15 },
     { scale: 0.68, veil: 0.11, floor: 0.935, silhouette: true,  count: 11 },
     { scale: 0.95, veil: 0.04, floor: 0.995, silhouette: false, count: 9 },
-    { scale: 1.30, veil: 0.00, floor: 1.045, silhouette: false, count: 6 }
+    { scale: 1.30, veil: 0.00, floor: 1.045, silhouette: false, count: 6 },
+    { scale: 3.40, veil: 0.00, floor: 1.220, silhouette: false, count: 0 }
   ];
 
+  /* --------------------------------------------------------- scale model */
+
+  /* Real body lengths, so the animals are in honest proportion to each
+     other. Only the whale shark's on-screen size is a composition choice;
+     everything else follows from it and from how near it swims. */
+  var METRES = {
+    whaleShark: 9.00,
+    blacktip:   1.70,
+    wrasse:     1.90,
+    stingray:   1.45,   /* disc width, not nose-to-tail */
+    lionfish:   0.35,
+    tang:       0.28,
+    dragon:     0.24,
+    reefFish:   0.11
+  };
+
+  /* Cruising speeds in m/s. TEMPO lifts the whole set together so the scene
+     reads awake, without disturbing the ratios: the sea dragon still barely
+     moves and the reef sharks still overtake everything they pass. */
+  var MPS = {
+    whaleShark: 1.20,
+    blacktip:   0.80,
+    wrasse:     0.42,
+    stingray:   0.50,
+    lionfish:   0.15,
+    tang:       0.30,
+    dragon:     0.06,
+    reefFish:   0.34
+  };
+  var TEMPO = 1.35;
+
   var W = 0, H = 0, dpr = 1;
+  /* pixels per metre at depth plane 1.0, calibrated off the whale shark */
+  var pxPerM = 1;
+  /* a phone shows the reef through a narrower window, so the near plane has
+     to come closer still or nothing in it survives the shrink */
+  var nearBoost = 1;
+
+  function sizeOf(m, plane) { return m * pxPerM * plane; }
+  /* px per millisecond, matching how the roamers integrate travel */
+  function speedOf(mps, plane) { return mps * TEMPO * pxPerM * plane / 1000; }
+
   var waves = [];
   var colonies = [], mounds = [], fish = [], bubbles = [], critters = [];
-  var shark = null, hammerheads = [], sunfishes = [], rays = [];
+  var shark = null, blacktips = [], rays = [], wrasses = [];
+  var lionfishes = [], tangs = [], dragons = [];
   var grain = null;
   var GROWN_AT = 0;
 
@@ -382,13 +460,75 @@
     };
   }
 
+  /* ------------------------------------------------- wildlife ornament */
+
+  /* The labyrinth scribble on a humphead's flank. Laid out once per animal
+     in body-local units so the maze doesn't crawl over the fish frame to
+     frame — it is a marking, not a texture. */
+  function wrasseMarks() {
+    var m = [];
+    for (var i = 0; i < 62; i++) {
+      m.push({
+        x: rr(-0.28, 0.42),
+        y: rr(-0.19, 0.15),
+        len: rr(0.05, 0.11),
+        amp: rr(0.010, 0.026),
+        /* the vermiculation runs broadly with the scale rows: down and
+           slightly forward, never in tidy parallel */
+        ang: Math.PI * 0.5 + rr(-0.55, 0.55),
+        w: rr(0.0035, 0.0075),
+        flip: rnd() < 0.5 ? 1 : -1
+      });
+    }
+    return m;
+  }
+
+  /* A leafy sea dragon's appendages: where each sits along the spine, which
+     side it hangs off, how long, and its own drift phase so the whole plant
+     never sways as one piece. */
+  function dragonLeaves() {
+    var out = [];
+    var spots = [0.27, 0.32, 0.37, 0.42, 0.46, 0.50, 0.55, 0.59,
+                 0.64, 0.69, 0.74, 0.79, 0.85, 0.90];
+    for (var i = 0; i < spots.length; i++) {
+      var side = i % 2 === 0 ? -1 : 1;
+      /* the biggest fronds cluster over the trunk and thin out down the
+         tail, which is what gives the animal its top-heavy weed shape */
+      var taper = 1 - Math.abs(spots[i] - 0.44) * 1.25;
+      out.push({
+        u: spots[i] + rr(-0.014, 0.014),
+        side: side,
+        len: (0.10 + 0.19 * Math.max(0.18, taper)) * rr(0.82, 1.2),
+        /* leaning fore and aft rather than all straight out is what keeps
+           the animal from reading as a sea urchin */
+        lean: rr(-0.62, 0.62),
+        phase: rr(0, TAU),
+        /* blade slenderness varies a lot: fat paddles next to thin straps
+           is what stops the animal reading as a row of identical leaves */
+        wide: rr(0.17, 0.34),
+        lobes: rnd() < 0.7 ? 2 : 1
+      });
+    }
+    /* the crown: the cluster over the nape and snout that a diver sees
+       first, and mistakes for a piece of drifting weed */
+    out.push({ u: 0.09, side: -1, len: 0.15 * rr(0.9, 1.1), lean: -0.75, phase: rr(0, TAU), wide: 0.20, lobes: 2 });
+    out.push({ u: 0.15, side: 1, len: 0.11 * rr(0.9, 1.1), lean: 0.85, phase: rr(0, TAU), wide: 0.30, lobes: 1 });
+    out.push({ u: 0.21, side: -1, len: 0.22 * rr(0.9, 1.1), lean: -0.28, phase: rr(0, TAU), wide: 0.19, lobes: 2 });
+    out.push({ u: 0.23, side: 1, len: 0.16 * rr(0.9, 1.1), lean: 0.42, phase: rr(0, TAU), wide: 0.26, lobes: 2 });
+    return out;
+  }
+
   /* ----------------------------------------------------------- builder */
 
   function buildScene() {
     rnd = mulberry32(seed);
     colonies = []; mounds = []; fish = []; bubbles = []; waves = [];
-    critters = []; hammerheads = []; sunfishes = []; rays = [];
+    critters = []; blacktips = []; rays = []; wrasses = [];
+    lionfishes = []; tangs = []; dragons = [];
     GROWN_AT = 0;
+
+    nearBoost = W < 760 ? 1.75 : W < 1100 ? 1.25 : 1;
+    pxPerM = Math.min(W * 0.44, H * 0.52) / (METRES.whaleShark * LAYERS[1].scale);
 
     for (var wi = 0; wi < LAYERS.length; wi++) {
       waves.push({
@@ -403,6 +543,7 @@
 
     for (var li = 0; li < LAYERS.length; li++) {
       var layer = LAYERS[li];
+      if (layer.count === 0) continue;   /* the open foreground pane */
       var slots = Math.max(3, Math.round(layer.count * (0.6 + W / 2000)));
 
       for (var i = 0; i < slots; i++) {
@@ -462,14 +603,19 @@
 
     /* ---- wildlife ---- */
 
+    /* Schools of small reef fish. An 11 cm anthias is a speck at the whale
+       shark's depth and a readable fish just off the glass, so the schools
+       are spread across planes: the far ones give the water its dust, the
+       near ones do the acting. */
     var schools = Math.max(3, Math.round(W / 340));
     var arrive = 1600;
     for (var sc = 0; sc < schools; sc++) {
-      var sli = 1 + ri(3);
-      var slayer = LAYERS[sli];
+      var plane = rnd() < 0.35 ? rr(0.7, 1.2) : rr(1.6, 2.9) * nearBoost;
+      var sli = plane < 1.15 ? 1 : plane < 1.5 ? 2 : plane < 2.1 ? 3 : 4;
       var dir = rnd() < 0.5 ? -1 : 1;
-      var size = H * 0.0095 * slayer.scale * rr(0.7, 1.5);
-      var speed = rr(16, 44) * slayer.scale * dir;
+      /* the drawn fish runs from +1s at the nose to -1.8s at the tail fork */
+      var size = sizeOf(METRES.reefFish, plane) / 2.8 * rr(0.8, 1.3);
+      var speed = speedOf(MPS.reefFish, plane) * 1000 * dir;
       var tone = hex2rgb(pick(pal.fish));
       var ox = rnd() * W;
       var oy = H * rr(0.56, 0.96);
@@ -480,12 +626,12 @@
           li: sli,
           x: ox + rr(-1, 1) * size * 9,
           y: oy + rr(-1, 1) * size * 5,
-          size: size * rr(0.8, 1.2),
+          size: size * rr(0.85, 1.15),
           speed: speed * rr(0.92, 1.08),
           dir: dir,
           tone: tone,
           phase: rr(0, TAU),
-          bob: rr(2, 7) * slayer.scale,
+          bob: size * rr(0.3, 0.95),
           t0: arrive + m * 90 + rr(0, 220)
         });
       }
@@ -500,67 +646,142 @@
     /* the whale shark: hero of the mid-water, always on its way through.
        Sized and placed so the whole animal — nose to tail tip — clears both
        the text above and the reef below. */
-    var len = Math.min(W * 0.44, H * 0.52);
+    var wsPlane = LAYERS[1].scale;
+    var len = sizeOf(METRES.whaleShark, wsPlane);
     shark = {
       len: len,
       y: Math.max(H * 0.5, H * rr(0.54, 0.62)),
       dir: rnd() < 0.5 ? -1 : 1,
       travel: W + len * 2.9,
-      speed: (W + len * 2.9) / 34000,   /* px per ms — one slow crossing */
+      speed: speedOf(MPS.whaleShark, wsPlane),
       t0: 2100,
       phase: rr(0, TAU)
     };
 
-    /* hammerheads: quicker, smaller patrollers than the whale shark,
-       crossing higher in the water column */
-    var hCount = W > 700 ? 1 + ri(2) : 1;
-    for (var hh = 0; hh < hCount; hh++) {
-      var hlen = Math.min(W * 0.16, H * 0.22) * rr(0.85, 1.15);
-      hammerheads.push({
-        len: hlen,
-        y: H * rr(0.30, 0.5),
+    /* blacktip reef sharks: at 1.7 m they come out a fifth of the whale
+       shark, which is the whole point — they patrol the crest in ones and
+       twos and are quick where the big animal is not */
+    var btPlane = LAYERS[2].scale;
+    var btCount = W > 700 ? 1 + ri(2) : 1;
+    for (var bt = 0; bt < btCount; bt++) {
+      var btLen = sizeOf(METRES.blacktip, btPlane) * rr(0.88, 1.12);
+      blacktips.push({
+        len: btLen,
+        y: H * rr(0.38, 0.58),
         dir: rnd() < 0.5 ? -1 : 1,
-        travel: W + hlen * 2.6,
-        speed: (W + hlen * 2.6) / rr(15000, 21000),
+        travel: W + btLen * 2.6,
+        speed: speedOf(MPS.blacktip, btPlane) * rr(0.9, 1.15),
         travelled: rr(0, W),
-        t0: 2600 + hh * 3400 + rr(0, 900),
+        rest: rr(0.20, 0.62),
+        t0: 2600 + bt * 3400 + rr(0, 900),
         phase: rr(0, TAU)
       });
     }
 
-    /* the ocean sunfish: a slow drifter with tall dorsal and anal fins
-       and no true tail, so it never gets a tail-beat sweep */
-    var sCount = rnd() < 0.15 ? 2 : 1;
-    for (var sfI = 0; sfI < sCount; sfI++) {
-      var slen = Math.min(W * 0.20, H * 0.30) * rr(0.85, 1.1);
-      sunfishes.push({
-        len: slen,
-        y: H * rr(0.22, 0.4),
+    /* humphead wrasse: heavy and unhurried, close in over the near reef —
+       where a two-metre fish shaped like that actually spends its day */
+    var wrPlane = LAYERS[3].scale;
+    var wrCount = W > 900 && rnd() < 0.3 ? 2 : 1;
+    for (var wr = 0; wr < wrCount; wr++) {
+      var wrLen = sizeOf(METRES.wrasse, wrPlane) * rr(0.85, 1.1);
+      wrasses.push({
+        len: wrLen,
+        y: H * rr(0.60, 0.78),
         dir: rnd() < 0.5 ? -1 : 1,
-        travel: W + slen * 2.4,
-        speed: (W + slen * 2.4) / rr(30000, 40000),
+        travel: W + wrLen * 2.2,
+        speed: speedOf(MPS.wrasse, wrPlane) * rr(0.9, 1.1),
         travelled: rr(0, W),
-        t0: 3400 + sfI * 5200 + rr(0, 1200),
-        phase: rr(0, TAU)
+        rest: rr(0.24, 0.66),
+        t0: 3000 + wr * 4200 + rr(0, 1000),
+        phase: rr(0, TAU),
+        marks: wrasseMarks()
       });
     }
 
     /* stingrays: hug the bed and glide across low, rather than cruising
        the open water like the bigger animals above */
+    var rayPlane = 1.15;
     var rCount = 1 + ri(2);
     for (var ryI = 0; ryI < rCount; ryI++) {
-      var raylen = Math.min(W * 0.15, H * 0.2) * rr(0.8, 1.2);
+      /* the drawing spans 1.2L wingtip to wingtip, so back the disc out */
+      var raylen = sizeOf(METRES.stingray, rayPlane) / 1.2 * rr(0.85, 1.15);
       rays.push({
         len: raylen,
         y: H * rr(0.72, 0.9),
         dir: rnd() < 0.5 ? -1 : 1,
         travel: W + raylen * 2.4,
-        speed: (W + raylen * 2.4) / rr(20000, 28000),
+        speed: speedOf(MPS.stingray, rayPlane) * rr(0.9, 1.1),
         travelled: rr(0, W),
+        rest: rr(0.22, 0.70),
         t0: 2000 + ryI * 2600 + rr(0, 800),
         phase: rr(0, TAU)
       });
     }
+
+    /* ---- the foreground pane: small animals, close to the glass ---- */
+
+    var fg = LAYERS[4].scale * nearBoost;
+
+    /* lionfish: all fin and no hurry, so it stays in frame long enough to
+       be looked at properly */
+    var lfCount = W > 1100 && rnd() < 0.35 ? 2 : 1;
+    for (var lf = 0; lf < lfCount; lf++) {
+      var lfLen = sizeOf(METRES.lionfish, fg) * rr(0.9, 1.1);
+      lionfishes.push({
+        len: lfLen,
+        y: H * rr(0.58, 0.82),
+        dir: rnd() < 0.5 ? -1 : 1,
+        travel: W + lfLen * 2.6,
+        speed: speedOf(MPS.lionfish, fg) * rr(0.9, 1.1),
+        travelled: rr(0, W),
+        rest: rr(0.26, 0.64),
+        t0: 3200 + lf * 5000 + rr(0, 1200),
+        phase: rr(0, TAU)
+      });
+    }
+
+    /* regal blue tangs travel as a loose shoal, strung out along one
+       heading — so they share a direction and a band and never re-pick a
+       depth on wrap, or the group would scatter after a lap */
+    var tangLen = sizeOf(METRES.tang, fg);
+    var tCount = 3 + ri(3);
+    var tDir = rnd() < 0.5 ? -1 : 1;
+    var tTravel = W + tangLen * 9;
+    var tSpeed = speedOf(MPS.tang, fg);
+    var tBand = H * rr(0.52, 0.74);
+    var tLead = rr(0, W);   /* one head of the shoal, not one per fish */
+    for (var tg = 0; tg < tCount; tg++) {
+      tangs.push({
+        len: tangLen * rr(0.82, 1.16),
+        y: tBand + rr(-1, 1) * tangLen * 0.6,
+        dir: tDir,
+        travel: tTravel,
+        speed: tSpeed * rr(0.97, 1.03),
+        travelled: tLead - tg * tangLen * rr(1.2, 2.4),
+        rest: 0.56 - tg * 0.045,
+        t0: 3600 + tg * 220 + rr(0, 400),
+        phase: rr(0, TAU),
+        bob: tangLen * rr(0.05, 0.14)
+      });
+    }
+
+    /* leafy sea dragon: at 6 cm/s it is an order of magnitude slower than
+       anything else here, which is exactly right — it drifts rather than
+       swims, and the near plane is the only place its foliage reads */
+    var dgPlane = fg * 1.3;
+    var dgLen = sizeOf(METRES.dragon, dgPlane) * rr(0.9, 1.1);
+    dragons.push({
+      len: dgLen,
+      y: H * rr(0.64, 0.86),
+      dir: rnd() < 0.5 ? -1 : 1,
+      travel: W + dgLen * 2.6,
+      speed: speedOf(MPS.dragon, dgPlane),
+      travelled: rr(0, W),
+      rest: rr(0.3, 0.6),
+      t0: 4200 + rr(0, 1400),
+      phase: rr(0, TAU),
+      leaves: dragonLeaves()
+    });
 
     /* watercolour grain, built once per resize */
     grain = document.createElement('canvas');
@@ -848,196 +1069,1104 @@
     ctx.restore();
   }
 
-  /* ------------------------------------------------------- hammerhead */
+  /* ------------------------------------------------ shared fin plumbing */
 
-  function drawHammerhead(h, t, dt) {
-    var fade = smooth((t - h.t0) / 1400);
-    if (fade <= 0) return;
-
-    if (!reduced) {
-      h.travelled += h.speed * dt * 1000;
-      if (h.travelled > h.travel) {
-        h.travelled = 0;
-        h.y = H * rr(0.30, 0.5);
-        h.dir = rnd() < 0.5 ? -1 : 1;
-      }
-    } else {
-      h.travelled = h.travel * 0.3;
+  /* Every crosser keeps the same books: integrate travel, and when it runs
+     off the far side, re-enter from a fresh heading at a fresh depth. Pass
+     y1 <= y0 to hold the animal's band and heading — the tang shoal needs
+     that or it scatters after one lap. */
+  function advance(a, dt, y0, y1, rest) {
+    if (reduced) {
+      /* A still pose — but each animal freezes at its own point in the
+         crossing. Freeze them all at the same fraction and the second
+         blacktip lands exactly on top of the first. */
+      a.travelled = a.travel * (a.rest === undefined ? rest : a.rest);
+      return;
     }
+    a.travelled += a.speed * dt * 1000;
+    if (a.travelled > a.travel) {
+      a.travelled = 0;
+      if (y1 > y0) {
+        a.y = H * rr(y0, y1);
+        a.dir = rnd() < 0.5 ? -1 : 1;
+      }
+    }
+  }
 
-    var L = h.len;
-    var x = h.dir > 0 ? -L * 1.3 + h.travelled : W + L * 1.3 - h.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.0006 + h.phase) * L * 0.03;
-    var beat = reduced ? 0 : Math.sin(t * 0.0032 + h.phase);
-    var y = h.y + bob;
-
-    var body = hex2rgb(pal.hammerhead);
-    var belly = hex2rgb(pal.hammerheadBelly);
-    var sweep = beat * L * 0.05;
-
+  /* Colour bands laid perpendicular to a fin's axis, measured from the apex
+     as a fraction of apex-to-base distance. Assumes a clip is already in
+     force; `fintip` is the version that clips to the current path first. */
+  function finBands(ax, ay, bx, by, blackTo, bandTo, tip, band, alpha) {
+    var dx = bx - ax, dy = by - ay;
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
     ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(h.dir, 1);
-    ctx.rotate(beat * 0.05);
+    ctx.translate(ax, ay);
+    ctx.rotate(Math.atan2(dy, dx));
+    ctx.fillStyle = rgba(tip, alpha);
+    ctx.fillRect(-d, -d, d * (1 + blackTo), d * 2);
+    if (band) {
+      ctx.fillStyle = rgba(band, alpha * 0.92);
+      ctx.fillRect(d * blackTo, -d, d * (bandTo - blackTo), d * 2);
+    }
+    ctx.restore();
+  }
 
-    /* far pectoral, swept back and shaded a shade darker so it sits behind */
-    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.18), fade);
+  function fintip(ax, ay, bx, by, blackTo, bandTo, tip, band, alpha) {
+    ctx.save();
+    ctx.clip();
+    finBands(ax, ay, bx, by, blackTo, bandTo, tip, band, alpha);
+    ctx.restore();
+  }
+
+  /* Translucent webbing stretched between neighbouring fin rays, stopping
+     short of the tips — free ray ends are what make a lionfish read as a
+     lionfish rather than as a fan. */
+  function spineWeb(bases, tips, frac, col, alpha) {
+    var n = tips.length;
+    if (n < 2) return;
+    ctx.fillStyle = rgba(col, alpha);
     ctx.beginPath();
-    ctx.moveTo(L * 0.06, L * 0.02);
-    ctx.quadraticCurveTo(-L * 0.05, L * 0.16, -L * 0.22, L * 0.2);
-    ctx.quadraticCurveTo(-L * 0.06, L * 0.09, L * 0.02, L * 0.05);
+    ctx.moveTo(bases[0][0], bases[0][1]);
+    for (var i = 0; i < n; i++) {
+      ctx.lineTo(
+        bases[i][0] + (tips[i][0] - bases[i][0]) * frac,
+        bases[i][1] + (tips[i][1] - bases[i][1]) * frac
+      );
+    }
+    for (var j = n - 1; j >= 0; j--) ctx.lineTo(bases[j][0], bases[j][1]);
     ctx.closePath();
     ctx.fill();
+  }
 
-    /* body: torpedo shark shape tapering into a heterocercal tail */
-    ctx.fillStyle = rgba(body, fade);
+  /* The rays themselves, banded down their length and tapering to a point */
+  function spineRays(bases, tips, unit, rayCol, bandCol, alpha, segs) {
+    ctx.lineCap = 'round';
+    for (var i = 0; i < tips.length; i++) {
+      var bx = bases[i][0], by = bases[i][1];
+      var dx = tips[i][0] - bx, dy = tips[i][1] - by;
+      for (var s = 0; s < segs; s++) {
+        var u0 = s / segs, u1 = (s + 1) / segs;
+        ctx.strokeStyle = rgba(s % 2 ? bandCol : rayCol, alpha * (0.95 - u0 * 0.2));
+        ctx.lineWidth = Math.max(0.6, unit * (1 - u0 * 0.5));
+        ctx.beginPath();
+        ctx.moveTo(bx + dx * u0, by + dy * u0);
+        ctx.lineTo(bx + dx * u1, by + dy * u1);
+        ctx.stroke();
+      }
+    }
+  }
+
+  /* A fan of rays off one root — pectoral, pelvic, caudal. `bulge` pushes
+     the middle rays out so the fan comes to a rounded edge instead of a
+     straight one. */
+  function finFan(bx, by, n, a0, a1, r0, r1, wob, unit, mem, rayCol, bandCol, alpha, memFrac) {
+    var bases = [], tips = [];
+    for (var i = 0; i < n; i++) {
+      var f = n === 1 ? 0 : i / (n - 1);
+      var ang = a0 + (a1 - a0) * f + wob * Math.sin(f * 3.1 + 1.2);
+      var rad = (r0 + (r1 - r0) * f) * (0.80 + 0.30 * Math.sin(Math.PI * f));
+      bases.push([bx, by]);
+      tips.push([bx + Math.cos(ang) * rad, by + Math.sin(ang) * rad]);
+    }
+    spineWeb(bases, tips, memFrac, mem, alpha * 0.4);
+    spineRays(bases, tips, unit, rayCol, bandCol, alpha, 5);
+  }
+
+  /* Spines rooted along a line rather than at a point — the lionfish
+     dorsal, where thirteen separate quills stand off the back. */
+  function finComb(x0, y0, x1, y1, n, a0, a1, r0, r1, wob, unit, mem, rayCol, bandCol, alpha, memFrac) {
+    var bases = [], tips = [];
+    for (var i = 0; i < n; i++) {
+      var f = i / (n - 1);
+      var bx = x0 + (x1 - x0) * f, by = y0 + (y1 - y0) * f;
+      var ang = a0 + (a1 - a0) * f + wob * Math.sin(f * 4.4);
+      var rad = (r0 + (r1 - r0) * f) * (0.70 + 0.44 * Math.sin(Math.PI * f));
+      bases.push([bx, by]);
+      tips.push([bx + Math.cos(ang) * rad, by + Math.sin(ang) * rad]);
+    }
+    spineWeb(bases, tips, memFrac, mem, alpha * 0.55);
+    spineRays(bases, tips, unit, rayCol, bandCol, alpha, 5);
+  }
+
+  /* ---------------------------------------------- blacktip reef shark */
+
+  function blacktipBody(L, sweep) {
     ctx.beginPath();
-    ctx.moveTo(L * 0.40, -L * 0.008);
-    ctx.quadraticCurveTo(L * 0.30, -L * 0.075, L * 0.05, -L * 0.085);
-    ctx.quadraticCurveTo(-L * 0.15, -L * 0.07, -L * 0.30, -L * 0.045);
-    ctx.quadraticCurveTo(-L * 0.42, -L * 0.09 + sweep * 0.6, -L * 0.52, -L * 0.2 + sweep);
-    ctx.quadraticCurveTo(-L * 0.46, -L * 0.05 + sweep * 0.5, -L * 0.40, -L * 0.008);
-    ctx.quadraticCurveTo(-L * 0.44, L * 0.05 + sweep * 0.5, -L * 0.50, L * 0.10 + sweep);
-    ctx.quadraticCurveTo(-L * 0.42, L * 0.04 + sweep * 0.4, -L * 0.32, L * 0.02);
-    ctx.quadraticCurveTo(-L * 0.12, L * 0.09, L * 0.10, L * 0.08);
-    ctx.quadraticCurveTo(L * 0.28, L * 0.06, L * 0.34, L * 0.02);
+    ctx.moveTo(L * 0.500, 0);
+    ctx.quadraticCurveTo(L * 0.474, -L * 0.046, L * 0.386, -L * 0.068);
+    ctx.bezierCurveTo(L * 0.210, -L * 0.108, 0, -L * 0.104, -L * 0.160, -L * 0.064);
+    ctx.quadraticCurveTo(-L * 0.270, -L * 0.044, -L * 0.330, -L * 0.028);
+    /* heterocercal tail: long upper lobe, deep notch, stubbier lower lobe */
+    ctx.quadraticCurveTo(-L * 0.400, -L * 0.100 + sweep * 0.55, -L * 0.520, -L * 0.215 + sweep);
+    ctx.quadraticCurveTo(-L * 0.485, -L * 0.075 + sweep * 0.60, -L * 0.395, sweep * 0.35);
+    ctx.quadraticCurveTo(-L * 0.425, L * 0.055 + sweep * 0.50, -L * 0.475, L * 0.115 + sweep * 0.85);
+    ctx.quadraticCurveTo(-L * 0.415, L * 0.058 + sweep * 0.45, -L * 0.325, L * 0.028);
+    ctx.bezierCurveTo(-L * 0.140, L * 0.088, L * 0.100, L * 0.098, L * 0.300, L * 0.072);
+    ctx.quadraticCurveTo(L * 0.444, L * 0.050, L * 0.500, 0);
     ctx.closePath();
+  }
+
+  function drawBlacktip(b, t, dt) {
+    var fade = smooth((t - b.t0) / 1400);
+    if (fade <= 0) return;
+    advance(b, dt, 0.38, 0.58, 0.34);
+
+    var L = b.len;
+    var x = b.dir > 0 ? -L * 1.3 + b.travelled : W + L * 1.3 - b.travelled;
+    var bob = reduced ? 0 : Math.sin(t * 0.0007 + b.phase) * L * 0.03;
+    var beat = reduced ? 0 : Math.sin(t * 0.0030 + b.phase);
+    var sweep = beat * L * 0.055;
+
+    var body = hex2rgb(pal.blacktip);
+    var belly = hex2rgb(pal.blacktipBelly);
+    var tip = hex2rgb(pal.finTip);
+    var band = hex2rgb(pal.finBand);
+    var deep = mix(body, [0, 0, 0], 0.3);
+
+    ctx.save();
+    ctx.translate(x, b.y + bob);
+    ctx.scale(b.dir, 1);
+    ctx.rotate(beat * 0.03);
+
+    /* far pectoral, a shade back so it sits behind the flank */
+    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.22), fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.20, L * 0.03);
+    ctx.quadraticCurveTo(L * 0.09, L * 0.14, -L * 0.05, L * 0.20);
+    ctx.quadraticCurveTo(L * 0.03, L * 0.10, L * 0.10, L * 0.06);
+    ctx.closePath();
+    ctx.fill();
+    fintip(-L * 0.05, L * 0.20, L * 0.14, L * 0.045, 0.24, 0.24, tip, null, fade * 0.85);
+
+    blacktipBody(L, sweep);
+    ctx.fillStyle = rgba(body, fade);
     ctx.fill();
 
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = rgba(belly, 0.4 * fade);
+
+    /* the caudal tips, applied through the body clip so the lobes keep
+       their outline: black on the lower lobe, a dusky trailing edge above */
+    finBands(-L * 0.475, L * 0.115 + sweep * 0.85, -L * 0.360, L * 0.030,
+      0.34, 0.34, tip, null, fade * 0.95);
+    finBands(-L * 0.520, -L * 0.215 + sweep, -L * 0.400, -L * 0.045,
+      0.18, 0.18, deep, null, fade * 0.6);
+
+    /* pale underside */
+    ctx.fillStyle = rgba(belly, 0.55 * fade);
     ctx.beginPath();
-    ctx.moveTo(L * 0.32, L * 0.06);
-    ctx.quadraticCurveTo(-L * 0.05, L * 0.10, -L * 0.32, L * 0.02);
-    ctx.lineTo(-L * 0.32, L * 0.16);
-    ctx.lineTo(L * 0.36, L * 0.14);
+    ctx.moveTo(L * 0.42, L * 0.038);
+    ctx.bezierCurveTo(L * 0.12, L * 0.066, -L * 0.14, L * 0.062, -L * 0.34, L * 0.008);
+    ctx.lineTo(-L * 0.34, L * 0.25);
+    ctx.lineTo(L * 0.48, L * 0.25);
     ctx.closePath();
     ctx.fill();
+
+    /* the chalk flank band, with the dark line that borders it above —
+       the field mark you actually pick a blacktip out by at distance */
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = rgba(band, 0.75 * fade);
+    ctx.lineWidth = L * 0.026;
+    ctx.beginPath();
+    ctx.moveTo(L * 0.33, L * 0.054);
+    ctx.bezierCurveTo(L * 0.10, L * 0.080, -L * 0.10, L * 0.078, -L * 0.30, L * 0.032);
+    ctx.stroke();
+    ctx.strokeStyle = rgba(deep, 0.35 * fade);
+    ctx.lineWidth = L * 0.010;
+    ctx.beginPath();
+    ctx.moveTo(L * 0.34, L * 0.038);
+    ctx.bezierCurveTo(L * 0.10, L * 0.064, -L * 0.10, L * 0.062, -L * 0.30, L * 0.018);
+    ctx.stroke();
+
+    /* five gill slits behind the head */
+    ctx.strokeStyle = rgba(deep, 0.45 * fade);
+    ctx.lineWidth = Math.max(0.7, L * 0.007);
+    for (var g = 0; g < 5; g++) {
+      var gxp = L * (0.285 - g * 0.030);
+      ctx.beginPath();
+      ctx.moveTo(gxp, -L * 0.062);
+      ctx.quadraticCurveTo(gxp - L * 0.014, 0, gxp - L * 0.004, L * 0.046);
+      ctx.stroke();
+    }
     ctx.restore();
 
-    /* the cephalofoil: a flattened bar spanning above and below the body,
-       which from the side is exactly the hammerhead's tell */
+    /* pelvic and anal fins, both kept small — on a real shark the pectoral
+       dwarfs them, and evening them up turns the underside into a row of
+       identical black spikes */
     ctx.fillStyle = rgba(body, fade);
     ctx.beginPath();
-    ctx.moveTo(L * 0.40, -L * 0.02);
-    ctx.quadraticCurveTo(L * 0.37, -L * 0.20, L * 0.30, -L * 0.21);
-    ctx.quadraticCurveTo(L * 0.24, -L * 0.20, L * 0.27, -L * 0.02);
-    ctx.quadraticCurveTo(L * 0.24, L * 0.17, L * 0.30, L * 0.19);
-    ctx.quadraticCurveTo(L * 0.37, L * 0.18, L * 0.40, L * 0.01);
+    ctx.moveTo(-L * 0.048, L * 0.080);
+    ctx.quadraticCurveTo(-L * 0.082, L * 0.140, -L * 0.136, L * 0.148);
+    ctx.quadraticCurveTo(-L * 0.120, L * 0.098, -L * 0.128, L * 0.064);
+    ctx.closePath();
+    ctx.fill();
+    fintip(-L * 0.136, L * 0.148, -L * 0.082, L * 0.078, 0.30, 0.30, tip, null, fade * 0.9);
+
+    ctx.fillStyle = rgba(body, fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.192, L * 0.056);
+    ctx.quadraticCurveTo(-L * 0.214, L * 0.122, -L * 0.276, L * 0.126);
+    ctx.quadraticCurveTo(-L * 0.258, L * 0.078, -L * 0.262, L * 0.042);
+    ctx.closePath();
+    ctx.fill();
+    fintip(-L * 0.276, L * 0.126, -L * 0.226, L * 0.054, 0.32, 0.32, tip, null, fade * 0.9);
+
+    /* second dorsal */
+    ctx.fillStyle = rgba(body, fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.180, -L * 0.062);
+    ctx.quadraticCurveTo(-L * 0.215, -L * 0.155, -L * 0.288, -L * 0.150);
+    ctx.quadraticCurveTo(-L * 0.262, -L * 0.090, -L * 0.268, -L * 0.048);
+    ctx.closePath();
+    ctx.fill();
+    fintip(-L * 0.288, -L * 0.150, -L * 0.225, -L * 0.060, 0.32, 0.32, tip, null, fade * 0.9);
+
+    /* first dorsal: tall, and the one fin that carries the white band
+       under its black tip. Based inside the back's contour so the
+       silhouette merges rather than showing a seam. */
+    ctx.fillStyle = rgba(body, fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.070, -L * 0.108);
+    ctx.quadraticCurveTo(L * 0.020, -L * 0.250, -L * 0.055, -L * 0.312);
+    ctx.quadraticCurveTo(-L * 0.045, -L * 0.185, -L * 0.120, -L * 0.078);
+    ctx.quadraticCurveTo(-L * 0.020, -L * 0.090, L * 0.070, -L * 0.108);
+    ctx.closePath();
+    ctx.fill();
+    fintip(-L * 0.055, -L * 0.312, L * 0.000, -L * 0.130, 0.26, 0.44, tip, band, fade);
+
+    /* near pectoral, broad and swept back — set well forward of the pelvic
+       so the underside doesn't read as one row of black spikes */
+    ctx.fillStyle = rgba(body, fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.296, L * 0.052);
+    ctx.quadraticCurveTo(L * 0.200, L * 0.188, L * 0.058, L * 0.262);
+    ctx.quadraticCurveTo(L * 0.108, L * 0.150, L * 0.132, L * 0.092);
+    ctx.closePath();
+    ctx.fill();
+    fintip(L * 0.058, L * 0.262, L * 0.222, L * 0.072, 0.24, 0.24, tip, null, fade);
+
+    /* eye, nostril and the short blunt mouth */
+    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.6), 0.92 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.392, -L * 0.030, Math.max(1, L * 0.014), 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(deep, 0.55 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.455, L * 0.040);
+    ctx.quadraticCurveTo(L * 0.400, L * 0.062, L * 0.345, L * 0.052);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(L * 0.462, L * 0.012);
+    ctx.lineTo(L * 0.446, L * 0.018);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /* ------------------------------------------------------ humphead wrasse */
+
+  /* The fish is roughly twice as long as it is deep — get that wrong and it
+     goes circular, and once it is circular no amount of forehead reads as a
+     hump. The dome has to clear the back line by a third of the body depth. */
+  function wrasseBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.492, L * 0.062);
+    ctx.quadraticCurveTo(L * 0.502, L * 0.010, L * 0.474, -L * 0.024);
+    /* a steep, near-vertical face rising off the snout... */
+    ctx.quadraticCurveTo(L * 0.458, -L * 0.070, L * 0.450, -L * 0.118);
+    /* ...into the hump, which overhangs forward before rolling back */
+    ctx.quadraticCurveTo(L * 0.446, -L * 0.210, L * 0.386, -L * 0.258);
+    ctx.quadraticCurveTo(L * 0.318, -L * 0.290, L * 0.240, -L * 0.246);
+    /* then drops hard into the nape notch — that dip is the whole tell */
+    ctx.quadraticCurveTo(L * 0.196, -L * 0.214, L * 0.166, -L * 0.174);
+    ctx.bezierCurveTo(L * 0.060, -L * 0.188, -L * 0.090, -L * 0.166, -L * 0.208, -L * 0.106);
+    ctx.quadraticCurveTo(-L * 0.262, -L * 0.082, -L * 0.302, -L * 0.062);
+    ctx.lineTo(-L * 0.302, L * 0.062);
+    ctx.quadraticCurveTo(-L * 0.250, L * 0.116, -L * 0.150, L * 0.156);
+    ctx.bezierCurveTo(L * 0.020, L * 0.212, L * 0.300, L * 0.198, L * 0.410, L * 0.140);
+    ctx.quadraticCurveTo(L * 0.470, L * 0.110, L * 0.492, L * 0.062);
+    ctx.closePath();
+  }
+
+  function drawWrasse(w, t, dt) {
+    var fade = smooth((t - w.t0) / 1600);
+    if (fade <= 0) return;
+    advance(w, dt, 0.60, 0.78, 0.4);
+
+    var L = w.len;
+    var x = w.dir > 0 ? -L * 1.1 + w.travelled : W + L * 1.1 - w.travelled;
+    var bob = reduced ? 0 : Math.sin(t * 0.00055 + w.phase) * L * 0.035;
+    /* wrasses row with their pectorals and only bring the tail in to
+       accelerate, so the caudal beat is slow and the fin flap is not */
+    var beat = reduced ? 0 : Math.sin(t * 0.0016 + w.phase);
+    var flap = reduced ? 0 : Math.sin(t * 0.0042 + w.phase);
+    var sw = beat * L * 0.05;
+
+    var body = hex2rgb(pal.wrasse);
+    var fin = hex2rgb(pal.wrasseFin);
+    var line = hex2rgb(pal.wrasseLine);
+    var dark = mix(body, [0, 0, 0], 0.45);
+
+    ctx.save();
+    ctx.translate(x, w.y + bob);
+    ctx.scale(w.dir, 1);
+    ctx.rotate(beat * 0.02);
+
+    /* caudal: broad and rounded, drawn behind so the peduncle covers it */
+    ctx.fillStyle = rgba(fin, 0.95 * fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.262, -L * 0.072);
+    ctx.quadraticCurveTo(-L * 0.400, -L * 0.180 + sw * 0.6, -L * 0.498, -L * 0.170 + sw);
+    ctx.quadraticCurveTo(-L * 0.544, sw * 0.9, -L * 0.498, L * 0.170 + sw);
+    ctx.quadraticCurveTo(-L * 0.400, L * 0.180 + sw * 0.6, -L * 0.262, L * 0.072);
+    ctx.closePath();
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = rgba(dark, 0.32 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.006);
+    for (var cr = 0; cr < 8; cr++) {
+      var ca = -0.56 + cr * 0.16;
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.272, 0);
+      ctx.lineTo(-L * 0.272 - Math.cos(ca) * L * 0.28, Math.sin(ca) * L * 0.28 + sw);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* dorsal and anal fins: long-based, low, and running most of the fish.
+       The dorsal starts behind the nape notch, not over the hump. */
+    ctx.fillStyle = rgba(mix(fin, [0, 0, 0], 0.1), 0.95 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.150, -L * 0.196);
+    ctx.bezierCurveTo(L * 0.020, -L * 0.256, -L * 0.110, -L * 0.234, -L * 0.300, -L * 0.132);
+    ctx.lineTo(-L * 0.302, -L * 0.062);
+    ctx.bezierCurveTo(-L * 0.110, -L * 0.168, L * 0.010, -L * 0.196, L * 0.150, -L * 0.180);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(L * 0.030, L * 0.208);
+    ctx.bezierCurveTo(-L * 0.080, L * 0.264, -L * 0.200, L * 0.222, -L * 0.298, L * 0.132);
+    ctx.lineTo(-L * 0.300, L * 0.062);
+    ctx.bezierCurveTo(-L * 0.180, L * 0.162, -L * 0.080, L * 0.200, L * 0.030, L * 0.200);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.5), 0.9 * fade);
-    ctx.beginPath();
-    ctx.arc(L * 0.295, -L * 0.195, Math.max(1, L * 0.014), 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(L * 0.295, L * 0.175, Math.max(1, L * 0.014), 0, TAU);
+    /* soft-ray combing on both */
+    ctx.strokeStyle = rgba(dark, 0.28 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.005);
+    for (var fr = 0; fr < 12; fr++) {
+      var u = fr / 11;
+      var bxp = L * (0.14 - u * 0.42);
+      ctx.beginPath();
+      ctx.moveTo(bxp, -L * (0.180 - u * 0.108));
+      ctx.lineTo(bxp - L * 0.012, -L * (0.222 - u * 0.104));
+      ctx.stroke();
+      if (u > 0.30) {
+        ctx.beginPath();
+        ctx.moveTo(bxp, L * (0.160 + (1 - u) * 0.03));
+        ctx.lineTo(bxp - L * 0.012, L * (0.208 + (1 - u) * 0.02));
+        ctx.stroke();
+      }
+    }
+
+    wrasseBody(L);
+    ctx.fillStyle = rgba(body, fade);
     ctx.fill();
 
-    /* dorsal fin, based well inside the back's contour */
-    ctx.fillStyle = rgba(body, fade);
+    ctx.save();
+    ctx.clip();
+
+    /* the flank lightens toward the belly the way a big wrasse's does */
+    ctx.fillStyle = rgba(mix(body, hex2rgb(pal.cream), 0.22), 0.34 * fade);
     ctx.beginPath();
-    ctx.moveTo(L * 0.02, -L * 0.06);
-    ctx.quadraticCurveTo(-L * 0.01, -L * 0.28, -L * 0.14, -L * 0.24);
-    ctx.quadraticCurveTo(-L * 0.10, -L * 0.10, -L * 0.02, -L * 0.06);
+    ctx.moveTo(-L * 0.32, L * 0.040);
+    ctx.bezierCurveTo(-L * 0.05, L * 0.100, L * 0.24, L * 0.092, L * 0.50, L * 0.018);
+    ctx.lineTo(L * 0.52, L * 0.26);
+    ctx.lineTo(-L * 0.32, L * 0.26);
     ctx.closePath();
+    ctx.fill();
+
+    /* scale rows: faint arcs sweeping back and down, the grid the
+       vermiculation is laid over */
+    ctx.strokeStyle = rgba(dark, 0.16 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.006);
+    for (var sr = 0; sr < 11; sr++) {
+      var sx = L * (0.30 - sr * 0.062);
+      ctx.beginPath();
+      ctx.moveTo(sx + L * 0.038, -L * 0.22);
+      ctx.quadraticCurveTo(sx - L * 0.016, 0, sx + L * 0.026, L * 0.22);
+      ctx.stroke();
+    }
+
+    /* the labyrinth: a maze of fine pale worm-lines over the whole flank */
+    ctx.lineCap = 'round';
+    for (var mi = 0; mi < w.marks.length; mi++) {
+      var mk = w.marks[mi];
+      /* every third line runs dark instead of pale, which is what turns a
+         field of squiggles into something that reads as a maze */
+      ctx.strokeStyle = mi % 3 === 2
+        ? rgba(dark, 0.26 * fade)
+        : rgba(line, 0.44 * fade);
+      var ca2 = Math.cos(mk.ang), sa2 = Math.sin(mk.ang);
+      var px = L * mk.x, py = L * mk.y;
+      var step = L * mk.len / 3;
+      var amp = L * mk.amp * mk.flip;
+      ctx.lineWidth = Math.max(0.5, L * mk.w);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      for (var seg = 1; seg <= 3; seg++) {
+        var mid = step * (seg - 0.5), end = step * seg;
+        var off = seg % 2 ? amp : -amp;
+        ctx.quadraticCurveTo(
+          px + ca2 * mid - sa2 * off, py + sa2 * mid + ca2 * off,
+          px + ca2 * end, py + sa2 * end
+        );
+      }
+      ctx.stroke();
+    }
+
+    /* the pair of dark streaks trailing back from the eye */
+    ctx.strokeStyle = rgba(dark, 0.62 * fade);
+    ctx.lineWidth = Math.max(0.8, L * 0.014);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.378, -L * 0.072);
+    ctx.quadraticCurveTo(L * 0.316, -L * 0.040, L * 0.258, -L * 0.020);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(L * 0.382, -L * 0.108);
+    ctx.quadraticCurveTo(L * 0.328, -L * 0.140, L * 0.268, -L * 0.150);
+    ctx.stroke();
+    ctx.restore();
+
+    /* pectoral fan, rowing — a wrasse swims on these, not on its tail */
+    ctx.save();
+    ctx.translate(L * 0.250, L * 0.070);
+    ctx.rotate(0.25 + flap * 0.34);
+    ctx.fillStyle = rgba(fin, 0.8 * fade);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-L * 0.050, L * 0.080, -L * 0.026, L * 0.180);
+    ctx.quadraticCurveTo(L * 0.044, L * 0.190, L * 0.074, L * 0.098);
+    ctx.quadraticCurveTo(L * 0.064, L * 0.030, 0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba(dark, 0.28 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.005);
+    for (var pf = 0; pf < 5; pf++) {
+      var pa = 0.78 + pf * 0.29;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(pa) * L * 0.15, Math.sin(pa) * L * 0.17);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    /* the lips: one thick rubbery pout built onto the snout rather than
+       stuck in front of it */
+    ctx.fillStyle = rgba(mix(fin, hex2rgb(pal.cream), 0.13), 0.95 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.468, -L * 0.036);
+    ctx.quadraticCurveTo(L * 0.528, -L * 0.008, L * 0.522, L * 0.024);
+    ctx.quadraticCurveTo(L * 0.532, L * 0.068, L * 0.474, L * 0.086);
+    ctx.quadraticCurveTo(L * 0.446, L * 0.024, L * 0.468, -L * 0.036);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba(dark, 0.55 * fade);
+    ctx.lineWidth = Math.max(0.7, L * 0.011);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.524, L * 0.024);
+    ctx.quadraticCurveTo(L * 0.482, L * 0.034, L * 0.458, L * 0.022);
+    ctx.stroke();
+
+    /* small eye, set high and forward under the overhang of the hump */
+    ctx.fillStyle = rgba(hex2rgb(pal.cream), 0.5 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.402, -L * 0.092, L * 0.028, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.72), 0.95 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.402, -L * 0.092, L * 0.018, 0, TAU);
     ctx.fill();
 
     ctx.restore();
   }
 
-  /* ------------------------------------------------------ ocean sunfish */
+  /* ----------------------------------------------------- regal blue tang */
 
-  function drawSunfish(s, t, dt) {
-    var fade = smooth((t - s.t0) / 1800);
+  function tangBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.500, L * 0.060);
+    ctx.quadraticCurveTo(L * 0.430, -L * 0.055, L * 0.330, -L * 0.150);
+    ctx.bezierCurveTo(L * 0.190, -L * 0.268, -L * 0.010, -L * 0.278, -L * 0.120, -L * 0.205);
+    ctx.quadraticCurveTo(-L * 0.185, -L * 0.160, -L * 0.215, -L * 0.078);
+    ctx.lineTo(-L * 0.225, L * 0.072);
+    ctx.quadraticCurveTo(-L * 0.190, L * 0.160, -L * 0.110, L * 0.215);
+    ctx.bezierCurveTo(L * 0.030, L * 0.295, L * 0.270, L * 0.230, L * 0.390, L * 0.145);
+    ctx.quadraticCurveTo(L * 0.462, L * 0.105, L * 0.500, L * 0.060);
+    ctx.closePath();
+  }
+
+  function drawTang(f, t, dt) {
+    var fade = smooth((t - f.t0) / 1200);
     if (fade <= 0) return;
+    /* the shoal holds its band and heading, so pass a null depth range */
+    advance(f, dt, 0, 0, 0.45);
 
-    if (!reduced) {
-      s.travelled += s.speed * dt * 1000;
-      if (s.travelled > s.travel) {
-        s.travelled = 0;
-        s.y = H * rr(0.22, 0.4);
-        s.dir = rnd() < 0.5 ? -1 : 1;
-      }
-    } else {
-      s.travelled = s.travel * 0.55;
-    }
+    var L = f.len;
+    var x = f.dir > 0 ? -L * 1.2 + f.travelled : W + L * 1.2 - f.travelled;
+    var beat = reduced ? 0 : Math.sin(t * 0.0052 + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0011 + f.phase) * f.bob;
+    var sw = beat * L * 0.055;
 
-    var L = s.len;
-    var x = s.dir > 0 ? -L * 0.7 + s.travelled : W + L * 0.7 - s.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.00035 + s.phase) * L * 0.04;
-    var flap = reduced ? 0 : Math.sin(t * 0.0028 + s.phase);
-    var y = s.y + bob;
-
-    var body = hex2rgb(pal.sunfish);
-    var belly = hex2rgb(pal.sunfishBelly);
+    var blue = hex2rgb(pal.tang);
+    var ink = hex2rgb(pal.tangDark);
+    var yellow = hex2rgb(pal.tangYellow);
+    var cream = hex2rgb(pal.cream);
 
     ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(s.dir, 1);
+    ctx.translate(x, f.y + bob);
+    ctx.scale(f.dir, 1);
+    ctx.rotate(beat * 0.035);
 
-    /* body: a tall lens, longer top-to-bottom than nose-to-tail */
-    ctx.fillStyle = rgba(body, fade);
+    /* the yellow caudal, black along its upper and lower margins */
+    ctx.fillStyle = rgba(yellow, fade);
     ctx.beginPath();
-    ctx.moveTo(L * 0.48, 0);
-    ctx.bezierCurveTo(L * 0.40, -L * 0.34, L * 0.05, -L * 0.40, -L * 0.16, -L * 0.30);
-    ctx.bezierCurveTo(-L * 0.34, -L * 0.19, -L * 0.36, L * 0.19, -L * 0.16, L * 0.30);
-    ctx.bezierCurveTo(L * 0.05, L * 0.40, L * 0.40, L * 0.34, L * 0.48, 0);
+    ctx.moveTo(-L * 0.200, -L * 0.060);
+    ctx.quadraticCurveTo(-L * 0.340, -L * 0.160 + sw * 0.6, -L * 0.500, -L * 0.235 + sw);
+    ctx.quadraticCurveTo(-L * 0.355, sw * 0.5, -L * 0.500, L * 0.235 + sw);
+    ctx.quadraticCurveTo(-L * 0.340, L * 0.160 + sw * 0.6, -L * 0.200, L * 0.060);
     ctx.closePath();
     ctx.fill();
-
-    /* faint mottling, mola mola's rough hide */
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.12), 0.5 * fade);
-    var blotch = [[0.1, -0.1, 0.09], [-0.05, 0.14, 0.07], [0.22, 0.08, 0.06], [-0.15, -0.14, 0.07]];
-    for (var bl = 0; bl < blotch.length; bl++) {
+    ctx.strokeStyle = rgba(ink, 0.95 * fade);
+    ctx.lineWidth = L * 0.045;
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.200, -L * 0.060);
+    ctx.quadraticCurveTo(-L * 0.340, -L * 0.160 + sw * 0.6, -L * 0.505, -L * 0.235 + sw);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.200, L * 0.060);
+    ctx.quadraticCurveTo(-L * 0.340, L * 0.160 + sw * 0.6, -L * 0.505, L * 0.235 + sw);
+    ctx.stroke();
+    ctx.restore();
+
+    /* dorsal and anal fins, blue with a fine dark margin */
+    ctx.fillStyle = rgba(blue, fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.300, -L * 0.170);
+    ctx.bezierCurveTo(L * 0.140, -L * 0.330, -L * 0.020, -L * 0.345, -L * 0.150, -L * 0.262);
+    ctx.lineTo(-L * 0.208, -L * 0.095);
+    ctx.bezierCurveTo(-L * 0.040, -L * 0.250, L * 0.140, -L * 0.242, L * 0.302, -L * 0.150);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba(ink, 0.8 * fade);
+    ctx.lineWidth = Math.max(0.7, L * 0.014);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.300, -L * 0.170);
+    ctx.bezierCurveTo(L * 0.140, -L * 0.330, -L * 0.020, -L * 0.345, -L * 0.150, -L * 0.262);
+    ctx.stroke();
+
+    ctx.fillStyle = rgba(blue, fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.180, L * 0.195);
+    ctx.bezierCurveTo(L * 0.040, L * 0.330, -L * 0.060, L * 0.330, -L * 0.160, L * 0.250);
+    ctx.lineTo(-L * 0.215, L * 0.090);
+    ctx.bezierCurveTo(-L * 0.060, L * 0.245, L * 0.060, L * 0.250, L * 0.182, L * 0.180);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgba(ink, 0.8 * fade);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.180, L * 0.195);
+    ctx.bezierCurveTo(L * 0.040, L * 0.330, -L * 0.060, L * 0.330, -L * 0.160, L * 0.250);
+    ctx.stroke();
+
+    tangBody(L);
+    ctx.fillStyle = rgba(blue, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+
+    /* the palette marking: one heavy black stroke that leaves the eye,
+       runs the length of the back, drops at the rear and hooks forward,
+       fencing off a lens of clear blue. Dory's "6". */
+    ctx.strokeStyle = rgba(ink, 0.96 * fade);
+    ctx.lineWidth = L * 0.062;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(L * 0.352, -L * 0.088);
+    ctx.bezierCurveTo(L * 0.190, -L * 0.198, L * 0.010, -L * 0.208, -L * 0.098, -L * 0.140);
+    ctx.quadraticCurveTo(-L * 0.176, -L * 0.086, -L * 0.164, L * 0.020);
+    ctx.quadraticCurveTo(-L * 0.150, L * 0.118, -L * 0.030, L * 0.132);
+    ctx.quadraticCurveTo(L * 0.100, L * 0.142, L * 0.176, L * 0.086);
+    ctx.stroke();
+
+    /* solid black peduncle where the body meets the yellow */
+    ctx.fillStyle = rgba(ink, 0.96 * fade);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.235, -L * 0.20);
+    ctx.lineTo(-L * 0.150, -L * 0.20);
+    ctx.quadraticCurveTo(-L * 0.180, 0, -L * 0.150, L * 0.20);
+    ctx.lineTo(-L * 0.235, L * 0.20);
+    ctx.closePath();
+    ctx.fill();
+
+    /* a soft sheen down the upper flank keeps the blue from going flat */
+    ctx.fillStyle = rgba(mix(blue, cream, 0.35), 0.16 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.10, -L * 0.02, L * 0.20, L * 0.055, -0.22, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* pectoral fin: nearly clear, so it lightens the flank instead of
+       printing an olive blot on it */
+    ctx.save();
+    ctx.translate(L * 0.250, L * 0.055);
+    ctx.rotate(0.4 + beat * 0.28);
+    ctx.fillStyle = rgba(mix(yellow, cream, 0.55), 0.3 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.045, L * 0.055, L * 0.078, L * 0.032, 0.85, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(mix(blue, cream, 0.4), 0.3 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.007);
+    for (var pr = 0; pr < 4; pr++) {
+      var pa2 = 0.55 + pr * 0.24;
       ctx.beginPath();
-      ctx.ellipse(L * blotch[bl][0], L * blotch[bl][1], L * blotch[bl][2], L * blotch[bl][2] * 0.7, 0, 0, TAU);
-      ctx.fill();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(pa2) * L * 0.11, Math.sin(pa2) * L * 0.12);
+      ctx.stroke();
     }
     ctx.restore();
 
-    /* dorsal fin, tall and paddle-shaped, based well inside the back */
-    ctx.fillStyle = rgba(body, fade);
+    /* the scalpel: a white blade at the tail base, which is what makes a
+       tang a surgeonfish */
+    ctx.fillStyle = rgba(cream, 0.85 * fade);
     ctx.beginPath();
-    ctx.moveTo(-L * 0.02, -L * 0.22);
-    ctx.quadraticCurveTo(-L * 0.05, -L * 0.72, -L * 0.22, -L * 0.76);
-    ctx.quadraticCurveTo(-L * 0.16, -L * 0.32, -L * 0.09, -L * 0.20);
+    ctx.moveTo(-L * 0.150, L * 0.038);
+    ctx.lineTo(-L * 0.205, L * 0.052);
+    ctx.lineTo(-L * 0.150, L * 0.062);
     ctx.closePath();
     ctx.fill();
 
-    /* anal fin, its mirror below and set slightly further back */
+    /* eye: the palette marking runs straight through it, so it needs a
+       bright rim or it vanishes into the black */
+    ctx.fillStyle = rgba(mix(blue, cream, 0.5), 0.8 * fade);
     ctx.beginPath();
-    ctx.moveTo(-L * 0.06, L * 0.22);
-    ctx.quadraticCurveTo(-L * 0.09, L * 0.68, -L * 0.26, L * 0.72);
-    ctx.quadraticCurveTo(-L * 0.19, L * 0.31, -L * 0.13, L * 0.20);
-    ctx.closePath();
+    ctx.arc(L * 0.356, -L * 0.106, L * 0.040, 0, TAU);
     ctx.fill();
+    ctx.fillStyle = rgba(ink, 0.96 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.356, -L * 0.106, L * 0.030, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(cream, 0.85 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.368, -L * 0.118, L * 0.012, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(ink, 0.8 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.014);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.492, L * 0.055);
+    ctx.lineTo(L * 0.458, L * 0.048);
+    ctx.stroke();
 
-    /* small pale paddle-like pectoral, flapping in place of a tail */
+    ctx.restore();
+  }
+
+  /* ---------------------------------------------------------- lionfish */
+
+  function lionBody(L) {
+    ctx.beginPath();
+    ctx.moveTo(L * 0.460, L * 0.010);
+    ctx.quadraticCurveTo(L * 0.430, -L * 0.055, L * 0.360, -L * 0.082);
+    ctx.quadraticCurveTo(L * 0.270, -L * 0.112, L * 0.170, -L * 0.102);
+    ctx.bezierCurveTo(L * 0.040, -L * 0.094, -L * 0.060, -L * 0.072, -L * 0.150, -L * 0.030);
+    ctx.lineTo(-L * 0.155, L * 0.028);
+    ctx.bezierCurveTo(-L * 0.060, L * 0.072, L * 0.040, L * 0.100, L * 0.150, L * 0.107);
+    ctx.quadraticCurveTo(L * 0.300, L * 0.114, L * 0.395, L * 0.075);
+    ctx.quadraticCurveTo(L * 0.450, L * 0.050, L * 0.460, L * 0.010);
+    ctx.closePath();
+  }
+
+  function drawLionfish(f, t, dt) {
+    var fade = smooth((t - f.t0) / 1800);
+    if (fade <= 0) return;
+    advance(f, dt, 0.58, 0.82, 0.42);
+
+    var L = f.len;
+    var x = f.dir > 0 ? -L * 1.3 + f.travelled : W + L * 1.3 - f.travelled;
+    var bob = reduced ? 0 : Math.sin(t * 0.00048 + f.phase) * L * 0.05;
+    /* the whole animal breathes rather than beats — the fins ripple, the
+       body barely moves */
+    var wob = reduced ? 0 : Math.sin(t * 0.0016 + f.phase) * 0.07;
+    var roll = reduced ? 0 : Math.sin(t * 0.0009 + f.phase) * 0.045;
+
+    var maroon = hex2rgb(pal.lion);
+    var palec = hex2rgb(pal.lionPale);
+    var deep = mix(maroon, [0, 0, 0], 0.32);
+    var unit = Math.max(0.8, L * 0.013);
+
     ctx.save();
-    ctx.translate(L * 0.08, L * 0.05);
-    ctx.rotate(flap * 0.35);
-    ctx.fillStyle = rgba(belly, 0.85 * fade);
+    ctx.translate(x, f.y + bob);
+    ctx.scale(f.dir, 1);
+    ctx.rotate(roll);
+
+    /* the webbing carries most of the fin's colour; the rays are the
+       skeleton drawn on top of it */
+    var web = mix(maroon, palec, 0.18);
+
+    /* far pectoral first, dimmed, so the near one reads as the closer fan */
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    finFan(L * 0.120, -L * 0.010, 8, 0.28, 2.14, L * 0.32, L * 0.38, wob * 0.7,
+      unit * 0.8, mix(web, [0, 0, 0], 0.3), deep, mix(palec, maroon, 0.5), fade, 0.74);
+    ctx.restore();
+
+    /* caudal fan, narrower than the pectorals so the stern stays readable */
+    finFan(-L * 0.150, L * 0.002, 9, 2.78, 3.50, L * 0.24, L * 0.24, wob * 0.9,
+      unit * 0.75, web, maroon, palec, fade, 0.82);
+
+    /* the thirteen dorsal quills: shorter and finer than the pectoral rays,
+       and webbed only across their lower third — separated spines are the
+       silhouette a lionfish is recognised by */
+    finComb(L * 0.200, -L * 0.100, -L * 0.135, -L * 0.036, 13,
+      -1.66, -2.44, L * 0.25, L * 0.20, wob, unit * 0.72, web, maroon, palec, fade, 0.32);
+
+    /* anal spines and the big trailing pelvics */
+    finComb(-L * 0.020, L * 0.104, -L * 0.140, L * 0.032, 6,
+      1.80, 2.36, L * 0.18, L * 0.15, wob * 0.8, unit * 0.8, web, maroon, palec, fade, 0.44);
+    finFan(L * 0.055, L * 0.100, 6, 1.24, 1.98, L * 0.28, L * 0.24, wob * 0.8,
+      unit * 0.9, web, maroon, palec, fade, 0.60);
+
+    lionBody(L);
+    ctx.fillStyle = rgba(palec, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    /* the bands: wide maroon bars over cream, tilted forward at the top
+       and narrowing over the caudal peduncle */
+    for (var b = 0; b < 11; b++) {
+      var u = b / 10;
+      var bx0 = L * (0.435 - u * 0.60);
+      var wide = L * (0.036 - u * 0.012);
+      ctx.fillStyle = rgba(b % 3 === 1 ? deep : maroon, (0.92 - u * 0.1) * fade);
+      ctx.beginPath();
+      ctx.moveTo(bx0 + L * 0.022, -L * 0.16);
+      ctx.quadraticCurveTo(bx0 - L * 0.004, 0, bx0 + L * 0.014, L * 0.16);
+      ctx.lineTo(bx0 + L * 0.014 - wide, L * 0.16);
+      ctx.quadraticCurveTo(bx0 - L * 0.004 - wide, 0, bx0 + L * 0.022 - wide, -L * 0.16);
+      ctx.closePath();
+      ctx.fill();
+    }
+    /* a darker saddle over the nape */
+    ctx.fillStyle = rgba(deep, 0.3 * fade);
     ctx.beginPath();
-    ctx.ellipse(0, 0, L * 0.09, L * 0.035, 0, 0, TAU);
+    ctx.ellipse(L * 0.28, -L * 0.075, L * 0.13, L * 0.05, -0.15, 0, TAU);
     ctx.fill();
     ctx.restore();
 
-    /* eye and small mouth at the snout */
-    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.55), 0.9 * fade);
+    /* near pectoral: the great banded fan the fish hunts behind. Half again
+       as long as anything else on the animal, and swept down and back
+       rather than out in front of the snout. */
+    finFan(L * 0.170, L * 0.048, 10, 0.55, 2.42, L * 0.42, L * 0.50, wob,
+      unit * 1.15, web, maroon, palec, fade, 0.72);
+
+    /* head: the upturned mouth, the eye, and the tentacles above it */
+    ctx.strokeStyle = rgba(deep, 0.85 * fade);
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(0.7, L * 0.011);
     ctx.beginPath();
-    ctx.arc(L * 0.34, -L * 0.06, Math.max(1, L * 0.012), 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = rgba(mix(body, [0, 0, 0], 0.4), 0.8 * fade);
-    ctx.lineWidth = Math.max(0.8, L * 0.008);
-    ctx.beginPath();
-    ctx.moveTo(L * 0.44, L * 0.01);
-    ctx.lineTo(L * 0.47, L * 0.02);
+    ctx.moveTo(L * 0.462, L * 0.008);
+    ctx.quadraticCurveTo(L * 0.418, L * 0.034, L * 0.372, L * 0.028);
     ctx.stroke();
+    /* the ridge of preopercular spines along the cheek */
+    ctx.strokeStyle = rgba(deep, 0.4 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.006);
+    for (var hs = 0; hs < 3; hs++) {
+      ctx.beginPath();
+      ctx.moveTo(L * (0.322 - hs * 0.032), -L * 0.004);
+      ctx.lineTo(L * (0.296 - hs * 0.036), L * 0.040);
+      ctx.stroke();
+    }
+
+    /* supraocular tentacle — the little feathered flag over each eye */
+    var tw = wob * 1.4;
+    ctx.strokeStyle = rgba(maroon, 0.9 * fade);
+    ctx.lineWidth = Math.max(0.7, L * 0.010);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.378, -L * 0.070);
+    ctx.quadraticCurveTo(L * 0.400, -L * 0.150, L * 0.352 + tw * L * 0.2, -L * 0.205);
+    ctx.stroke();
+    ctx.fillStyle = rgba(palec, 0.8 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.352 + tw * L * 0.2, -L * 0.212, L * 0.022, L * 0.012, -0.5 + tw, 0, TAU);
+    ctx.fill();
+    /* and a pair of barbels under the jaw */
+    ctx.strokeStyle = rgba(maroon, 0.75 * fade);
+    ctx.lineWidth = Math.max(0.6, L * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(L * 0.410, L * 0.040);
+    ctx.quadraticCurveTo(L * 0.408, L * 0.090, L * 0.376 - tw * L * 0.15, L * 0.118);
+    ctx.stroke();
+
+    ctx.fillStyle = rgba(palec, 0.85 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.372, -L * 0.036, L * 0.033, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(deep, [0, 0, 0], 0.5), 0.95 * fade);
+    ctx.beginPath();
+    ctx.arc(L * 0.374, -L * 0.036, L * 0.021, 0, TAU);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* --------------------------------------------------- leafy sea dragon */
+
+  /* Spine and half-widths in body-local units: a long tube of a snout, a
+     deep trunk, then a tail that tapers away and curls under. */
+  var DRAGON_SPINE = [
+    [0.500, 0.118], [0.432, 0.100], [0.362, 0.076], [0.302, 0.046],
+    [0.252, 0.004], [0.192, -0.024], [0.112, -0.038], [0.030, -0.036],
+    [-0.050, -0.014], [-0.130, 0.028], [-0.200, 0.084], [-0.258, 0.152],
+    [-0.298, 0.228], [-0.310, 0.300], [-0.286, 0.352], [-0.236, 0.368]
+  ];
+  /* the bulge at index 4-5 is the head, the swell at 6-8 the brooding
+     trunk, and the rest tapers away down the prehensile tail */
+  var DRAGON_WIDTH = [
+    0.006, 0.009, 0.015, 0.032, 0.050, 0.054, 0.070, 0.072,
+    0.060, 0.046, 0.035, 0.027, 0.021, 0.015, 0.011, 0.007
+  ];
+  var DRAGON_N = 52;
+  /* scratch, reused every frame so the drift doesn't allocate */
+  var dgX = new Float32Array(DRAGON_N + 1);
+  var dgY = new Float32Array(DRAGON_N + 1);
+  var dgNX = new Float32Array(DRAGON_N + 1);
+  var dgNY = new Float32Array(DRAGON_N + 1);
+  var dgW = new Float32Array(DRAGON_N + 1);
+
+  function catmull(a, b, c, d, u) {
+    var u2 = u * u, u3 = u2 * u;
+    return 0.5 * (2 * b + (c - a) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (3 * b - 3 * c + d - a) * u3);
+  }
+
+  function sampleDragon(L, drift) {
+    var last = DRAGON_SPINE.length - 1;
+    var i, k;
+    for (i = 0; i <= DRAGON_N; i++) {
+      var f = i / DRAGON_N;
+      var u = f * last;
+      k = Math.min(last - 1, Math.floor(u));
+      var s = u - k;
+      var p0 = DRAGON_SPINE[Math.max(0, k - 1)];
+      var p1 = DRAGON_SPINE[k];
+      var p2 = DRAGON_SPINE[k + 1];
+      var p3 = DRAGON_SPINE[Math.min(last, k + 2)];
+      /* the drift builds toward the tail, the way a held-still animal
+         idles against the current */
+      var flex = drift * f * f;
+      dgX[i] = L * catmull(p0[0], p1[0], p2[0], p3[0], s);
+      dgY[i] = L * (catmull(p0[1], p1[1], p2[1], p3[1], s) + flex);
+      var w0 = DRAGON_WIDTH[k], w1 = DRAGON_WIDTH[k + 1];
+      dgW[i] = L * (w0 + (w1 - w0) * s);
+    }
+    for (i = 0; i <= DRAGON_N; i++) {
+      var a = i > 0 ? i - 1 : 0, b = i < DRAGON_N ? i + 1 : DRAGON_N;
+      var tx = dgX[b] - dgX[a], ty = dgY[b] - dgY[a];
+      var m = Math.sqrt(tx * tx + ty * ty) || 1;
+      dgNX[i] = -ty / m;
+      dgNY[i] = tx / m;
+    }
+  }
+
+  /* One leaflet, in the leaf's own frame. Deliberately lopsided — a
+     symmetric blade reads as clip-art foliage, and the whole point of this
+     animal is that it does not look drawn. */
+  function leafBlade(x0, len, wide) {
+    ctx.beginPath();
+    ctx.moveTo(x0, 0);
+    ctx.bezierCurveTo(x0 + len * 0.16, -wide * 0.72, x0 + len * 0.34, -wide, x0 + len * 0.54, -wide * 0.84);
+    ctx.bezierCurveTo(x0 + len * 0.72, -wide * 0.70, x0 + len * 0.90, -wide * 0.56, x0 + len, 0);
+    ctx.bezierCurveTo(x0 + len * 0.84, wide * 0.62, x0 + len * 0.62, wide * 0.96, x0 + len * 0.42, wide * 0.92);
+    ctx.bezierCurveTo(x0 + len * 0.24, wide * 0.88, x0 + len * 0.11, wide * 0.52, x0, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawDragon(d, t, dt) {
+    var fade = smooth((t - d.t0) / 2200);
+    if (fade <= 0) return;
+    advance(d, dt, 0.64, 0.86, 0.5);
+
+    var L = d.len;
+    var x = d.dir > 0 ? -L * 1.3 + d.travelled : W + L * 1.3 - d.travelled;
+    var bob = reduced ? 0 : Math.sin(t * 0.00040 + d.phase) * L * 0.05;
+    var drift = reduced ? 0 : Math.sin(t * 0.00075 + d.phase) * 0.055;
+    var flutter = reduced ? 0 : Math.sin(t * 0.021 + d.phase);
+
+    var body = hex2rgb(pal.dragon);
+    var cream = hex2rgb(pal.cream);
+    var dark = mix(body, [0, 0, 0], 0.4);
+    /* the appendages are outgrowths of the animal, not decorations stuck
+       on it, so they carry a good share of the body's own colour */
+    var leafc = mix(hex2rgb(pal.dragonLeaf), body, 0.32);
+    var leafEdge = mix(leafc, [0, 0, 0], 0.35);
+
+    ctx.save();
+    ctx.translate(x, d.y + bob);
+    ctx.scale(d.dir, 1);
+    ctx.rotate(drift * 0.6);
+
+    sampleDragon(L, drift);
+
+    /* the appendages hang behind the body so the trunk stays legible */
+    for (var li2 = 0; li2 < d.leaves.length; li2++) {
+      var lf = d.leaves[li2];
+      var idx = Math.round(clamp01(lf.u) * DRAGON_N);
+      var sway = reduced ? 0 : Math.sin(t * 0.0013 + lf.phase) * 0.24;
+      var nx = dgNX[idx] * lf.side, ny = dgNY[idx] * lf.side;
+      var bxp = dgX[idx] + nx * dgW[idx] * 0.8;
+      var byp = dgY[idx] + ny * dgW[idx] * 0.8;
+      var ang = Math.atan2(ny, nx) + lf.lean + sway;
+      var len = L * lf.len;
+      var wide = len * lf.wide;
+
+      ctx.save();
+      ctx.translate(bxp, byp);
+      ctx.rotate(ang);
+      ctx.strokeStyle = rgba(dark, 0.75 * fade);
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(0.6, len * 0.075);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(len * 0.40, 0);
+      ctx.stroke();
+
+      ctx.fillStyle = rgba(leafc, 0.88 * fade);
+      leafBlade(len * 0.32, len * 0.68, wide);
+      ctx.strokeStyle = rgba(leafEdge, 0.42 * fade);
+      ctx.lineWidth = Math.max(0.4, len * 0.035);
+      ctx.stroke();
+      if (lf.lobes > 1) {
+        ctx.save();
+        ctx.translate(len * 0.38, 0);
+        ctx.rotate(-0.68 + sway * 0.4);
+        ctx.fillStyle = rgba(mix(leafc, cream, 0.20), 0.84 * fade);
+        leafBlade(0, len * 0.46, wide * 0.60);
+        ctx.restore();
+        ctx.save();
+        ctx.translate(len * 0.42, 0);
+        ctx.rotate(0.74 - sway * 0.4);
+        ctx.fillStyle = rgba(mix(leafc, [0, 0, 0], 0.16), 0.84 * fade);
+        leafBlade(0, len * 0.40, wide * 0.56);
+        ctx.restore();
+      }
+      /* midrib */
+      ctx.strokeStyle = rgba(leafEdge, 0.5 * fade);
+      ctx.lineWidth = Math.max(0.4, len * 0.028);
+      ctx.beginPath();
+      ctx.moveTo(len * 0.34, 0);
+      ctx.lineTo(len * 0.94, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* the near-invisible fins: a dorsal ripple over the trunk and a
+       pectoral by the gill, both beating far faster than the animal moves */
+    ctx.fillStyle = rgba(cream, 0.13 * fade);
+    ctx.beginPath();
+    for (var fi = 14; fi <= 30; fi++) {
+      ctx.lineTo(dgX[fi] - dgNX[fi] * dgW[fi], dgY[fi] - dgNY[fi] * dgW[fi]);
+    }
+    for (var fj = 30; fj >= 14; fj--) {
+      var ripple = 1 + 0.55 * Math.sin(fj * 0.9 + flutter * 2.4);
+      ctx.lineTo(
+        dgX[fj] - dgNX[fj] * (dgW[fj] + L * 0.022 * ripple),
+        dgY[fj] - dgNY[fj] * (dgW[fj] + L * 0.022 * ripple)
+      );
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    /* the body itself: one tapering ribbon from snout tip to curled tail */
+    ctx.beginPath();
+    ctx.moveTo(dgX[0], dgY[0]);
+    for (var i2 = 0; i2 <= DRAGON_N; i2++) {
+      ctx.lineTo(dgX[i2] + dgNX[i2] * dgW[i2], dgY[i2] + dgNY[i2] * dgW[i2]);
+    }
+    for (var j2 = DRAGON_N; j2 >= 0; j2--) {
+      ctx.lineTo(dgX[j2] - dgNX[j2] * dgW[j2], dgY[j2] - dgNY[j2] * dgW[j2]);
+    }
+    ctx.closePath();
+    ctx.fillStyle = rgba(body, fade);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    /* pale bars over the trunk, dark rings down the tail */
+    ctx.lineCap = 'butt';
+    for (var bi = 6; bi < DRAGON_N; bi += 3) {
+      var deepEnd = bi / DRAGON_N;
+      ctx.strokeStyle = deepEnd < 0.55
+        ? rgba(cream, 0.34 * fade)
+        : rgba(dark, 0.42 * fade);
+      ctx.lineWidth = Math.max(0.6, L * (deepEnd < 0.55 ? 0.012 : 0.009));
+      ctx.beginPath();
+      ctx.moveTo(dgX[bi] + dgNX[bi] * dgW[bi], dgY[bi] + dgNY[bi] * dgW[bi]);
+      ctx.lineTo(dgX[bi] - dgNX[bi] * dgW[bi], dgY[bi] - dgNY[bi] * dgW[bi]);
+      ctx.stroke();
+    }
+    /* the shaded underside */
+    ctx.fillStyle = rgba(dark, 0.18 * fade);
+    ctx.beginPath();
+    for (var ui = 0; ui <= DRAGON_N; ui++) {
+      ctx.lineTo(dgX[ui] + dgNX[ui] * dgW[ui], dgY[ui] + dgNY[ui] * dgW[ui]);
+    }
+    for (var uj = DRAGON_N; uj >= 0; uj--) {
+      ctx.lineTo(dgX[uj] + dgNX[uj] * dgW[uj] * 0.15, dgY[uj] + dgNY[uj] * dgW[uj] * 0.15);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    /* the bony ring plates: a syngnathid wears its skeleton on the outside,
+       and the little spurs along the ridge are how you can tell */
+    ctx.fillStyle = rgba(dark, 0.45 * fade);
+    for (var ri2 = 16; ri2 < DRAGON_N - 2; ri2 += 4) {
+      var spur = L * 0.014 * (1 - ri2 / DRAGON_N * 0.6);
+      ctx.beginPath();
+      ctx.moveTo(dgX[ri2 - 1] - dgNX[ri2 - 1] * dgW[ri2 - 1], dgY[ri2 - 1] - dgNY[ri2 - 1] * dgW[ri2 - 1]);
+      ctx.lineTo(dgX[ri2] - dgNX[ri2] * (dgW[ri2] + spur), dgY[ri2] - dgNY[ri2] * (dgW[ri2] + spur));
+      ctx.lineTo(dgX[ri2 + 1] - dgNX[ri2 + 1] * dgW[ri2 + 1], dgY[ri2 + 1] - dgNY[ri2 + 1] * dgW[ri2 + 1]);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    /* pectoral flutter behind the head */
+    var pi2 = 13;
+    ctx.save();
+    ctx.translate(dgX[pi2], dgY[pi2]);
+    ctx.rotate(1.1 + flutter * 0.25);
+    ctx.fillStyle = rgba(cream, 0.22 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.035, 0, L * 0.038, L * 0.016, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    /* eye, set just behind the base of that long snout */
+    var ei = 10;
+    ctx.fillStyle = rgba(cream, 0.6 * fade);
+    ctx.beginPath();
+    ctx.arc(dgX[ei], dgY[ei] - L * 0.006, L * 0.019, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(dark, [0, 0, 0], 0.4), 0.95 * fade);
+    ctx.beginPath();
+    ctx.arc(dgX[ei] + L * 0.003, dgY[ei] - L * 0.007, L * 0.011, 0, TAU);
+    ctx.fill();
 
     ctx.restore();
   }
@@ -1048,16 +2177,7 @@
     var fade = smooth((t - r.t0) / 1400);
     if (fade <= 0) return;
 
-    if (!reduced) {
-      r.travelled += r.speed * dt * 1000;
-      if (r.travelled > r.travel) {
-        r.travelled = 0;
-        r.y = H * rr(0.72, 0.9);
-        r.dir = rnd() < 0.5 ? -1 : 1;
-      }
-    } else {
-      r.travelled = r.travel * 0.6;
-    }
+    advance(r, dt, 0.72, 0.9, 0.6);
 
     var L = r.len;
     var x = r.dir > 0 ? -L * 0.9 + r.travelled : W + L * 0.9 - r.travelled;
@@ -1317,13 +2437,20 @@
       }
 
       /* mid-water roamers cruise between the deep layers and the reef */
-      if (li === 1) {
-        drawShark(t, dt);
-        for (var sf = 0; sf < sunfishes.length; sf++) drawSunfish(sunfishes[sf], t, dt);
-      }
+      if (li === 1) drawShark(t, dt);
       if (li === 2) {
-        for (var hd = 0; hd < hammerheads.length; hd++) drawHammerhead(hammerheads[hd], t, dt);
+        for (var bk = 0; bk < blacktips.length; bk++) drawBlacktip(blacktips[bk], t, dt);
         for (var ry = 0; ry < rays.length; ry++) drawStingray(rays[ry], t, dt);
+      }
+      /* the wrasse works the crest, in front of the near coral */
+      if (li === 3) {
+        for (var wq = 0; wq < wrasses.length; wq++) drawWrasse(wrasses[wq], t, dt);
+      }
+      /* and the foreground pane, closest of all */
+      if (li === 4) {
+        for (var dq = 0; dq < dragons.length; dq++) drawDragon(dragons[dq], t, dt);
+        for (var tq = 0; tq < tangs.length; tq++) drawTang(tangs[tq], t, dt);
+        for (var lq = 0; lq < lionfishes.length; lq++) drawLionfish(lionfishes[lq], t, dt);
       }
     }
 
