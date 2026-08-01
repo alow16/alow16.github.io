@@ -185,6 +185,12 @@
     { scale: 3.40, veil: 0.00, floor: 1.220, silhouette: false, count: 0 }
   ];
 
+  /* The two big crest animals — the blacktip and the humphead wrasse — hold
+     one plane between LAYERS[2] and LAYERS[3], so a viewer comparing them
+     is comparing the animals and not their distances: 1.9 m of wrasse comes
+     out exactly 1.9/1.7 of the shark, the way it would in the water. */
+  var CREST_PLANE = 1.22;
+
   /* --------------------------------------------------------- scale model */
 
   /* Real body lengths, so the animals are in honest proportion to each
@@ -206,7 +212,10 @@
      moves and the reef sharks still overtake everything they pass. */
   var MPS = {
     whaleShark: 1.20,
-    blacktip:   0.80,
+    /* a patrolling blacktip cruises at about a third of a body length a
+       second — slow for a shark, and slower still now that the body it has
+       to move is the full 1.7 m */
+    blacktip:   0.55,
     wrasse:     0.42,
     stingray:   0.50,
     lionfish:   0.15,
@@ -660,14 +669,18 @@
 
     /* blacktip reef sharks: at 1.7 m they come out a fifth of the whale
        shark, which is the whole point — they patrol the crest in ones and
-       twos and are quick where the big animal is not */
-    var btPlane = LAYERS[2].scale;
+       twos and are quick where the big animal is not.
+
+       They work the near edge of the mid-water rather than the layer-2
+       plane, on CREST_PLANE with the wrasse — and short of LAYERS[3], so
+       they correctly pass behind the near coral. */
+    var btPlane = CREST_PLANE;
     var btCount = W > 700 ? 1 + ri(2) : 1;
     for (var bt = 0; bt < btCount; bt++) {
       var btLen = sizeOf(METRES.blacktip, btPlane) * rr(0.88, 1.12);
       blacktips.push({
         len: btLen,
-        y: H * rr(0.38, 0.58),
+        y: H * rr(0.42, 0.58),
         dir: rnd() < 0.5 ? -1 : 1,
         travel: W + btLen * 2.6,
         speed: speedOf(MPS.blacktip, btPlane) * rr(0.9, 1.15),
@@ -679,8 +692,12 @@
     }
 
     /* humphead wrasse: heavy and unhurried, close in over the near reef —
-       where a two-metre fish shaped like that actually spends its day */
-    var wrPlane = LAYERS[3].scale;
+       where a two-metre fish shaped like that actually spends its day. It
+       shares CREST_PLANE with the blacktip: it still swims lower and in
+       front of the layer-3 coral, but it is no longer sized a plane nearer
+       than the shark, which was quietly adding 7% to a fish that already
+       out-measures a blacktip. */
+    var wrPlane = CREST_PLANE;
     var wrCount = W > 900 && rnd() < 0.3 ? 2 : 1;
     for (var wr = 0; wr < wrCount; wr++) {
       var wrLen = sizeOf(METRES.wrasse, wrPlane) * rr(0.85, 1.1);
@@ -1209,7 +1226,7 @@
   function drawBlacktip(b, t, dt) {
     var fade = smooth((t - b.t0) / 1400);
     if (fade <= 0) return;
-    advance(b, dt, 0.38, 0.58, 0.34);
+    advance(b, dt, 0.42, 0.58, 0.34);
 
     var L = b.len;
     var x = b.dir > 0 ? -L * 1.3 + b.travelled : W + L * 1.3 - b.travelled;
