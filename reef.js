@@ -28,6 +28,12 @@
  *      blue tangs and a pair or two of moorish idols drift through the near
  *      foreground, a leafy sea dragon works the bed below them, and
  *      starfish, urchins, anemones and clams dot the floor
+ *   5. and then, every half minute, the one thing here that is an event
+ *      rather than a resident: a bait ball of a few hundred minnows bolts the
+ *      length of the reef with a blacktip closing on it from behind. The
+ *      school parts around the shark's reach and closes up again past it —
+ *      every fish steering rather than being moved, so each one points where
+ *      it is actually going
  *
  * Every animal is sized from a real body length in metres against a depth
  * plane (see METRES / planes below), so the whale shark really is thirty
@@ -83,6 +89,10 @@
       blacktipBelly: '#efe6d2',
       finTip: '#1b2430',
       finBand: '#f7f2e6',
+      /* the bait ball: a dark mass that throws white every time the fish
+         inside it roll their flanks into the light */
+      minnow: '#2c4a63',
+      minnowFlash: '#f3f7f4',
       /* humphead wrasse: teal-green with a paler vermiculate scribble */
       wrasse: '#1f8f86',
       wrasseFin: '#2aa79b',
@@ -134,6 +144,8 @@
       blacktipBelly: '#c3b9a3',
       finTip: '#0c121a',
       finBand: '#d8d1c1',
+      minnow: '#17334a',
+      minnowFlash: '#c6d3d0',
       wrasse: '#146059',
       wrasseFin: '#18776d',
       wrasseLine: '#63b3a2',
@@ -287,7 +299,10 @@
     dragon:     0.24,
     idol:       0.20,
     yellowTang: 0.18,
-    reefFish:   0.11
+    reefFish:   0.11,
+    /* a silverside — the fish a bait ball is made of, and the smallest
+       animal in the scene by half */
+    minnow:     0.07
   };
 
   /* Cruising speeds in m/s. TEMPO lifts the whole set together so the scene
@@ -312,7 +327,15 @@
     yellowTang: 0.22,
     idol:       0.26,
     dragon:     0.06,
-    reefFish:   0.34
+    reefFish:   0.34,
+    /* Every other figure here is a cruise, and every other figure here is
+       honest. This one is neither: it is a bolt, and at 25 body lengths a
+       second it is past what a 7 cm fish can really do — a real one tops out
+       nearer 20 and holds it for a second or two, not for the width of the
+       frame. It is the one speed in the file chosen for the look rather than
+       measured, because a bait ball that crosses in five seconds is a bait
+       ball being hunted and one that takes ten is a commute. */
+    minnow:     1.75
   };
   var TEMPO = 1.35;
   /* The reef runs at a fraction of that rate — a slower, more watchable
@@ -339,6 +362,37 @@
   var groupers = [], sweetlipses = [], yellowtangs = [], idols = [];
   var grain = null;
   var GROWN_AT = 0;
+
+  /* The hunting run: the one thing in the scene that is an event rather than
+     a resident. Every RUN_EVERY a bait ball bolts through with a blacktip on
+     its tail, and between runs there is nothing on screen at all — which is
+     most of the time, and deliberately so. A thing that happens every half
+     minute and is over in five seconds is an event; the same thing three
+     times as often is scenery.
+
+     A run takes about five seconds to cross whatever the canvas is: the
+     school is sized in metres like everything else, so a wider canvas is also
+     a canvas with more pixels to the metre and the two cancel. */
+  var RUN_PLANE = 2.20;
+  var RUN_EVERY = 30000;
+
+  /* The reef runs at PACE — a fraction of real time, because a background
+     illustration wants to be watchable rather than busy. The run is the one
+     thing that opts out, and it has to: a bolt slowed to two fifths is not a
+     bolt, it is a commute, and the whole point of the event is that it tears
+     through a scene that is otherwise drifting. Being off the reef's clock is
+     what makes it read as fast — the contrast does more work than the speed.
+
+     It applies to the travel and to the shark's tail, which have to agree:
+     leave the shark on reef time and it sculls along at a patrol beat while
+     covering ground at two and a half times the rate, thrashing its way to
+     nowhere in the other direction. The school's own oscillators — the swing,
+     the tails, the flash — were tuned against real time and so already sit
+     where this puts everything else. */
+  var RUN_TEMPO = 1 / PACE;
+  var RUN_FIRST = 7000;
+  var run = null;
+  var runAt = 0;
 
   /* How high the reef is allowed to build. The prose is laid out by CSS and
      its depth swings hard with the viewport — three paragraphs that take a
@@ -1502,6 +1556,13 @@
       leaves: dragonLeaves()
     });
 
+    /* The hunting run is scheduled rather than stocked: nothing is on screen
+       until the first one is due, and the reef has to be grown and settled
+       before it makes any sense. Reduced motion never gets a second frame to
+       run a clock in, so that viewer is handed one frozen mid-run instead. */
+    run = reduced ? buildRun() : null;
+    runAt = 0;                          /* frame() schedules off its own clock */
+
     /* watercolour grain, built once per resize */
     grain = document.createElement('canvas');
     grain.width = grain.height = 96;
@@ -2182,16 +2243,31 @@
     ctx.closePath();
   }
 
+  /* How far the animal rides off its own line. Wanted outside the painter as
+     well as in it: the bait ball has to be shouldered aside by the head, so
+     something else needs to know where the head actually ended up. */
+  function blacktipBob(L, phase, t) {
+    return reduced ? 0 : Math.sin(t * 0.0007 * PACE + phase) * L * 0.03;
+  }
+
+  /* the resident patrollers, who keep their own books */
   function drawBlacktip(b, t, dt) {
     var fade = smooth((t - b.t0) / 1400);
     if (fade <= 0) return;
     advance(b, dt, 0.42, 0.58, 0.34);
-
     var L = b.len;
     var x = b.dir > 0 ? -L * 1.3 + b.travelled : W + L * 1.3 - b.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.0007 * PACE + b.phase) * L * 0.03;
-    var beat = reduced ? 0 : Math.sin(t * 0.0030 * PACE + b.phase);
-    var sweep = beat * L * 0.055;
+    paintBlacktip(x, b.y, b.dir, L, b.phase, t, fade, 1);
+  }
+
+  /* The animal itself, wherever something has decided to put it. `drive` is
+     how hard it is working: 1 for a patrol on reef time, and up around
+     1.9 / PACE for the shark on a hunting run, which is off reef time
+     altogether and beats its tail to match. */
+  function paintBlacktip(x, y, dir, L, phase, t, fade, drive) {
+    var bob = blacktipBob(L, phase, t);
+    var beat = reduced ? 0 : Math.sin(t * 0.0030 * PACE * drive + phase);
+    var sweep = beat * L * 0.055 * (0.75 + 0.25 * Math.min(2, drive));
 
     var body = hex2rgb(pal.blacktip);
     var belly = hex2rgb(pal.blacktipBelly);
@@ -2200,8 +2276,8 @@
     var deep = mix(body, [0, 0, 0], 0.3);
 
     ctx.save();
-    ctx.translate(x, b.y + bob);
-    ctx.scale(b.dir, 1);
+    ctx.translate(x, y + bob);
+    ctx.scale(dir, 1);
     ctx.rotate(beat * 0.03);
 
     /* far pectoral, a shade back so it sits behind the flank */
@@ -2338,6 +2414,295 @@
     ctx.stroke();
 
     ctx.restore();
+  }
+
+  /* ------------------------------------------------------- the bait ball */
+
+  /* A bait ball is not a crowd of individuals. It is one body that happens to
+     be made of fish, and each fish holds a station in that body — but nothing
+     here is ever moved by hand. Every fish carries a velocity, and its
+     position, its heading and the speed of its tail all come off that one
+     vector. That is the whole reason the school reads as swimming rather than
+     as being shoved about: a fish can only ever point where it is genuinely
+     travelling, because the drawing has no other direction available to it.
+
+     What the shark gets is a reach — a radius off its head that the school
+     will not enter. Fish do not get pushed out of it. They put on a burst and
+     go around it, and the way round is always angled downstream, so the
+     school parts, streams past on both sides and closes up again behind. */
+  function buildRun() {
+    var plane = RUN_PLANE * nearBoost;
+    var dir = rnd() < 0.5 ? -1 : 1;
+    var body = sizeOf(METRES.minnow, plane);
+    /* the ball itself: getting on for three metres across, measured the same
+       way as every animal here rather than picked in pixels */
+    var rx = sizeOf(1.40, plane) * rr(0.90, 1.15);
+    /* Kept shallow on purpose, and shallower than a bait ball would be if it
+       had the room. The open water between the last line of prose and the top
+       of the crest is not much deeper than the ball itself, and every pixel of
+       depth is a pixel the school cannot swing in — which is the motion worth
+       having. A flat school that moves as one beats a round one that sits. */
+    var ry = rx * rr(0.24, 0.30);
+    var L = sizeOf(METRES.blacktip, plane) * rr(0.94, 1.08);
+    var speed = speedOf(MPS.minnow, plane) * RUN_TEMPO;
+    /* dense enough that it reads as a mass rather than as a lot of fish,
+       and capped so a wide canvas doesn't quietly triple the frame cost */
+    var n = Math.round(Math.min(320, 120 + W * 0.13));
+
+    /* How far the ball rides up and down as it goes. There is a fixed amount
+       of open water to play with and this spends all of it on one motion: an
+       earlier version also veered the school up as the shark came on, which
+       is a nice enough idea but it is the same motion by another name, and
+       reserving headroom for both left neither with enough amplitude to see
+       while pushing the whole ball down into the coral. One visible swing
+       that every fish is part of beats two invisible ones. */
+    var swing = ry * 0.70;
+
+    /* Clear of the prose above and of the crest below. ceilingY is where the
+       coral has to stop, and a fish is not coral — but the ball still has to
+       hang in open water rather than down in the branches, because a school
+       that is half behind the reef is a school nobody can see being hunted.
+       The cruising line is set from the top of the swing rather than from the
+       middle, so it is half a ball and a full swing that have to fit under
+       the last line of prose, not half a ball. */
+    var top = ceilingY - H * 0.055 + ry + swing;
+    var y = Math.min(H * 0.76, Math.max(top, H * rr(0.50, 0.62)));
+
+    var cx0 = dir > 0 ? -rx * 1.2 : W + rx * 1.2;
+    var school = [];
+    for (var i = 0; i < n; i++) {
+      /* uniform through the ellipse: the square root on the radius, or the
+         middle packs solid and the rim goes bald */
+      var a = rnd() * TAU, r = Math.sqrt(rnd());
+      var u = Math.cos(a) * r * rx, v = Math.sin(a) * r * ry;
+      school.push({
+        u: u, v: v,
+        /* on station and already up to cruising speed: the run starts off
+           the edge of the frame, so nothing is ever seen accelerating */
+        x: cx0 + u, y: y + v,
+        vx: dir * speed, vy: 0,
+        len: body * rr(0.82, 1.18),
+        /* only ever used for the tail and the flash — never for where the
+           fish is, which is the school's business and not its own */
+        phase: rr(0, TAU),
+        beat: rr(0.020, 0.030)
+      });
+    }
+
+    return {
+      dir: dir, y: y, rx: rx, ry: ry, len: L, school: school,
+      swing: swing,
+      /* the radius off the head the school works to stay out of. Sized against
+         the ball rather than generously: a reach much over a third of the
+         ball's half-length scatters the whole school instead of parting it,
+         and a scattered school never gets back together inside one crossing. */
+      reach: L * 0.50,
+      /* one flat scratch buffer of poses, so the three flash passes can be
+         arithmetic over numbers instead of three hundred repeats of the
+         trigonometry */
+      pose: new Float32Array(n * 8),
+      speed: speed,
+      lead: rx * 1.2,
+      travelled: 0,
+      /* off one edge to off the other, and no further: the run ends the
+         moment the shark's tail clears, because the alternative is three
+         hundred fish being drawn for another two seconds past the frame */
+      travel: W + rx * 1.25 + L * 1.15,
+      phase: rr(0, TAU)
+    };
+  }
+
+  /* One step of the school's motion. Everything below is a velocity — the
+     fish are never repositioned — which is what lets the draw take a heading
+     straight off the direction of travel and always be right. */
+  function runStep(r, t, dt, cx, cy, hx, hy) {
+    var dir = r.dir, S = r.speed, R = r.reach;
+    var ms = dt * 1000;
+    /* how fast a fish can change its mind, per second */
+    var ease = 1 - Math.exp(-dt * 7);
+    var hold = S * 0.90;              /* ceiling on the pull back to station */
+    var sch = r.school;
+
+    for (var i = 0; i < sch.length; i++) {
+      var m = sch[i];
+
+      /* The station this fish is trying to hold in the body of the school —
+         and nothing else. There is deliberately no per-fish wander here: give
+         each animal its own little oscillation and every one of them is
+         heading somewhere slightly different at any given instant, which is
+         exactly what stops a few hundred fish reading as one school. All the
+         drift the school has belongs to the school, and is already in cx/cy,
+         so when it swings they all swing together and in step. */
+      var stx = cx + m.u, sty = cy + m.v;
+
+      /* keeping station, capped: uncapped, a fish that has just sprinted well
+         past its station gets a pull back big enough to cancel the cruise,
+         and a fish with no velocity has no heading to be drawn with */
+      var kx = (stx - m.x) * 0.0028, ky = (sty - m.y) * 0.0028;
+      var kl = Math.sqrt(kx * kx + ky * ky);
+      if (kl > hold) { kx = kx / kl * hold; ky = ky / kl * hold; }
+
+      /* The shark's reach. The escape is the outward direction bent downstream
+         until it always has a forward component — so a fish never backs into
+         the animal chasing it, and the ones abeam of the head slide past it at
+         an angle instead of being blown out sideways.
+
+         The urge falls off linearly to nothing at the rim, and the pull back
+         to station falls away with it: a fish inside the reach has stopped
+         keeping station altogether. That second half matters more than the
+         first. Leave the station pull at full strength and it simply drags
+         the fish back in — the two forces balance somewhere well inside the
+         reach and the school sits there being swum through, which is the
+         whole thing this is meant to avoid. */
+      var ax = m.x - hx, ay = m.y - hy;
+      var d = Math.sqrt(ax * ax + ay * ay);
+      var vdx, vdy;
+      if (d < R) {
+        var s = 1 - d / R;                 /* 1 against the head, 0 at the rim */
+        var slack = (1 - s) * (1 - s);
+        var ex = ax / (d || 1) * 0.85 + dir, ey = ay / (d || 1) * 0.85;
+        var el = Math.sqrt(ex * ex + ey * ey) || 1;
+        vdx = dir * S + kx * slack + ex / el * S * 1.6 * s;
+        vdy = ky * slack + ey / el * S * 1.6 * s;
+      } else {
+        vdx = dir * S + kx;
+        vdy = ky;
+      }
+
+      m.vx += (vdx - m.vx) * ease;
+      m.vy += (vdy - m.vy) * ease;
+      m.x += m.vx * ms;
+      m.y += m.vy * ms;
+    }
+  }
+
+  /* Where the run is — the ball, the snout, and the centre of the reach — for
+     whatever point along the crossing it has got to. Wanted twice over: once
+     to draw, and once per step while a reduced-motion viewer's copy is walked
+     through the crossing in one go. */
+  function runPose(r, t) {
+    var dir = r.dir;
+    var p = clamp01(r.travelled / r.travel);
+
+    /* The whole ball swings as one body, on two periods so it curves rather
+       than metronomes. This is the only wander in the school: every fish is
+       stationed off this one point, so the entire mass banks into the turn
+       together and every heading in it swings at the same moment. That is the
+       thing you actually notice about a school, and it is worth more than any
+       amount of per-fish detail — which only ever subtracts from it. */
+    var swing = reduced ? 0
+      : Math.sin(t * 0.0016 + r.phase) * 0.62
+      + Math.sin(t * 0.0037 + r.phase * 1.7) * 0.38;
+    var cy = r.y + swing * r.swing;
+
+    /* The shark closes over the crossing: a length and a half off the tail of
+       the ball as it enters frame, and up against it around the middle of the
+       screen. It never drives past the rear of the school — with the fish now
+       clearing out ahead of it there is nothing to bury itself in, and a shark
+       inside a school reads as a shark the school is escorting. */
+    var cx = dir > 0 ? -r.lead + r.travelled : W + r.lead - r.travelled;
+    var gap = r.rx * (1.55 - 1.95 * smooth(p / 0.55));
+    var noseX = cx - dir * (r.rx + gap);
+    var sy = cy + r.len * 0.03;   /* running a shade under the school */
+
+    return {
+      cx: cx, cy: cy, noseX: noseX, sy: sy,
+      /* the reach sits just ahead of the snout: it is the water the animal
+         can take a fish out of, not the space its body happens to occupy */
+      hx: noseX + dir * r.len * 0.10,
+      hy: sy + blacktipBob(r.len, r.phase, t)
+    };
+  }
+
+  function drawRun(r, t, dt) {
+    var g;
+    if (reduced) {
+      /* No clock to run, so run one here. The school only holds together
+         because its stations are travelling with it, so the crossing has to
+         be walked properly — freeze the ball and step the fish against it and
+         they swim forward into the station pull and pile up. Walk it to the
+         moment worth freezing instead: ball mid-frame, shark on its tail. */
+      if (!r.settled) {
+        var mark = r.travel * 0.44;
+        while (r.travelled < mark) {
+          r.travelled = Math.min(mark, r.travelled + r.speed * 16.7);
+          g = runPose(r, t);
+          runStep(r, t, 1 / 60, g.cx, g.cy, g.hx, g.hy);
+        }
+        r.settled = true;
+      }
+      g = runPose(r, t);
+    } else {
+      r.travelled += r.speed * dt * 1000;
+      g = runPose(r, t);
+      runStep(r, t, dt, g.cx, g.cy, g.hx, g.hy);
+    }
+    var dir = r.dir, noseX = g.noseX, sy = g.sy;
+
+    var sch = r.school, pose = r.pose;
+    var i, o;
+    for (i = 0; i < sch.length; i++) {
+      var m = sch[i];
+      var sp = Math.sqrt(m.vx * m.vx + m.vy * m.vy) || 1;
+      var push = sp / r.speed;        /* 1 at a cruise, up near 3 in a bolt */
+      o = i * 8;
+      pose[o] = m.x;
+      pose[o + 1] = m.y;
+      pose[o + 2] = m.vx / sp;
+      pose[o + 3] = m.vy / sp;
+      pose[o + 4] = Math.atan2(m.vy, m.vx);
+      pose[o + 5] = m.len;
+      /* the tail keeps time with the fish: beating harder is how it got the
+         speed, so the two cannot be allowed to disagree */
+      pose[o + 6] = reduced ? 0
+        : Math.sin(t * m.beat * (0.7 + 0.6 * push) + m.phase);
+      /* the flash: a fish throws white when it rolls its flank into the light,
+         and a school rolls in waves. Hardest where it is bolting. */
+      pose[o + 7] = clamp01(
+        0.5 + 0.5 * Math.sin(t * 0.004 + m.phase * 3.1 - m.u * 0.014 + m.v * 0.02)
+        + (push - 1) * 0.7
+      );
+    }
+
+    /* Three passes and three fillStyle changes for the whole school: the dark
+       body of every fish, then the flank of the ones catching the light, then
+       a smaller core on the ones catching it hardest. Fills stack, so the
+       dark pass is left showing as the outline of every fish. */
+    var back = hex2rgb(pal.minnow);
+    var lit = hex2rgb(pal.minnowFlash);
+    var tone = [rgba(back, 0.92), rgba(mix(back, lit, 0.6), 0.95), rgba(lit, 0.95)];
+    var cut = [-1, 0.44, 0.82];
+    var thin = [1, 0.84, 0.58];
+
+    for (var q = 0; q < 3; q++) {
+      ctx.fillStyle = tone[q];
+      ctx.beginPath();
+      for (i = 0; i < sch.length; i++) {
+        o = i * 8;
+        if (pose[o + 7] <= cut[q]) continue;
+        var px = pose[o], py = pose[o + 1];
+        var cs = pose[o + 2], sn = pose[o + 3];
+        var b = pose[o + 5] * thin[q];
+
+        /* ellipse() draws a line in from wherever the path was, so each body
+           has to start its own subpath at the arc's own start point */
+        ctx.moveTo(px + cs * b, py + sn * b);
+        ctx.ellipse(px, py, b, b * 0.32, pose[o + 4], 0, TAU);
+
+        if (q > 0) continue;   /* the flash sits on the flank, not the tail */
+        var wg = pose[o + 6] * b * 0.42;
+        var fx = px - cs * b * 1.55 - sn * wg;
+        var fy = py - sn * b * 1.55 + cs * wg;
+        ctx.moveTo(px - cs * b * 0.55, py - sn * b * 0.55);
+        ctx.lineTo(fx - sn * b * 0.40, fy + cs * b * 0.40);
+        ctx.lineTo(fx + sn * b * 0.40, fy - cs * b * 0.40);
+        ctx.closePath();
+      }
+      ctx.fill();
+    }
+
+    paintBlacktip(noseX - dir * r.len * 0.5, sy, dir, r.len, r.phase, t, 1,
+      1.9 * RUN_TEMPO);
   }
 
   /* ------------------------------------------------------ humphead wrasse */
@@ -4298,6 +4663,28 @@
     var dt = Math.min(0.064, Math.max(0, (t - lastT) / 1000));
     lastT = t;
 
+    /* The run clock. The beats are a fixed grid rather than a delay from the
+       last finish, so the cadence stays fifteen seconds; a beat that lands
+       while a run is still crossing — only possible on a canvas wide enough
+       that a crossing takes longer than the interval — is dropped rather
+       than stacked, because two bait balls at once is not a thing.
+
+       The schedule is set here rather than in buildScene because the frame
+       clock is not reset on a rebuild: a resize at the two-minute mark would
+       otherwise leave the first beat two minutes overdue and fire a run the
+       instant the canvas settled. */
+    if (!reduced) {
+      if (runAt === 0) runAt = t + RUN_FIRST;
+      if (run && run.travelled >= run.travel) run = null;
+      if (t >= runAt) {
+        if (!run) run = buildRun();
+        runAt += RUN_EVERY;
+        /* a backgrounded tab comes back with the clock minutes past the
+           schedule — resync rather than walking it forward a beat a frame */
+        if (runAt <= t) runAt = t + RUN_EVERY;
+      }
+    }
+
     /* the water column */
     var wg = ctx.createLinearGradient(0, 0, 0, H);
     wg.addColorStop(0, pal.water[0]);
@@ -4343,6 +4730,9 @@
         for (var wq = 0; wq < wrasses.length; wq++) drawWrasse(wrasses[wq], t, dt);
         for (var gq = 0; gq < groupers.length; gq++) drawGrouper(groupers[gq], t, dt);
         for (var sq = 0; sq < sweetlipses.length; sq++) drawSweetlips(sweetlipses[sq], t, dt);
+        /* the run sits on its own plane between the sweetlips and the tang
+           herd, and takes its turn there like anything else */
+        if (run) drawRun(run, t, dt);
         for (var yq = 0; yq < yellowtangs.length; yq++) drawYellowTang(yellowtangs[yq], t, dt);
       }
       /* and the foreground pane, closest of all */
