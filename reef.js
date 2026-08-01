@@ -20,11 +20,11 @@
  *   3. bright finger corals, plates, columns, kelp blades and mounds grow in
  *      up front, cream dots beading along them as they finish
  *   4. wildlife arrives: fish schools fade in and start swimming, bubbles
- *      trickle off the reef, a whale shark, blacktip reef sharks and
- *      stingrays cross the mid-water, a humphead wrasse patrols the reef
- *      crest, a lionfish, a shoal of regal blue tangs and a leafy sea
- *      dragon drift through the near foreground, and starfish, urchins,
- *      anemones and clams dot the floor
+ *      trickle off the reef, a whale shark and blacktip reef sharks cross
+ *      the mid-water, a humphead wrasse patrols the reef crest, lionfish
+ *      hang over the near coral, a shoal of regal blue tangs drifts through
+ *      the near foreground, a leafy sea dragon works the bed below them,
+ *      and starfish, urchins, anemones and clams dot the floor
  *
  * Every animal is sized from a real body length in metres against a depth
  * plane (see METRES / planes below), so the whale shark really is thirty
@@ -89,8 +89,6 @@
       /* leafy sea dragon: olive-gold body, weedy green appendages */
       dragon: '#c98f3a',
       dragonLeaf: '#8ea84a',
-      ray: '#9c7a52',
-      rayBelly: '#e6d9bd',
       urchin: '#3a2a52'
     },
     dark: {
@@ -121,8 +119,6 @@
       lionPale: '#d6c8b0',
       dragon: '#96682a',
       dragonLeaf: '#657a34',
-      ray: '#5e4930',
-      rayBelly: '#a99878',
       urchin: '#251a38'
     }
   };
@@ -227,11 +223,17 @@
      into one massif with a crest instead of four visible bands. */
   var LAYERS = [
     { scale: 0.52, veil: 0.20, floor: 0.780, silhouette: true,  count: 25 },
-    { scale: 0.70, veil: 0.11, floor: 0.865, silhouette: true,  count: 20 },
+    { scale: 0.68, veil: 0.11, floor: 0.865, silhouette: true,  count: 20 },
     { scale: 0.95, veil: 0.04, floor: 0.955, silhouette: false, count: 18 },
     { scale: 1.30, veil: 0.00, floor: 1.045, silhouette: false, count: 10 },
     { scale: 3.40, veil: 0.00, floor: 1.220, silhouette: false, count: 0 }
   ];
+
+  /* The two big crest animals — the blacktip and the humphead wrasse — hold
+     one plane between LAYERS[2] and LAYERS[3], so a viewer comparing them
+     is comparing the animals and not their distances: 1.9 m of wrasse comes
+     out exactly 1.9/1.7 of the shark, the way it would in the water. */
+  var CREST_PLANE = 1.22;
 
   /* --------------------------------------------------------- scale model */
 
@@ -242,7 +244,6 @@
     whaleShark: 9.00,
     blacktip:   1.70,
     wrasse:     1.90,
-    stingray:   1.45,   /* disc width, not nose-to-tail */
     lionfish:   0.35,
     tang:       0.28,
     dragon:     0.24,
@@ -254,10 +255,12 @@
      moves and the reef sharks still overtake everything they pass. */
   var MPS = {
     whaleShark: 1.20,
-    blacktip:   0.80,
+    /* a patrolling blacktip cruises at about a third of a body length a
+       second — slow for a shark, and slower still now that the body it has
+       to move is the full 1.7 m */
+    blacktip:   0.55,
     wrasse:     0.42,
-    stingray:   0.50,
-    lionfish:   0.15,
+    lionfish:   0.07,
     tang:       0.30,
     dragon:     0.06,
     reefFish:   0.34
@@ -277,7 +280,7 @@
 
   var waves = [];
   var colonies = [], mounds = [], forms = [], fish = [], bubbles = [], critters = [];
-  var shark = null, blacktips = [], rays = [], wrasses = [];
+  var shark = null, blacktips = [], wrasses = [];
   var lionfishes = [], tangs = [], dragons = [];
   var grain = null;
   var GROWN_AT = 0;
@@ -902,38 +905,70 @@
     return m;
   }
 
-  /* A leafy sea dragon's appendages: where each sits along the spine, which
-     side it hangs off, how long, and its own drift phase so the whole plant
-     never sways as one piece. */
+  /* A leafy sea dragon's appendages are not scattered decoration — each one
+     grows off a named bony spine, and the layout is the single most
+     recognisable thing about the animal: a crest over the head, big fronds
+     off the nape, a hanging fan under the chest and belly, a prominent pair
+     at the tail base, then diminishing pairs down the tail.
+       u     — position along the spine, snout tip 0 to tail tip 1
+       side  — +1 dorsal ridge, -1 ventral ridge
+       lean  — how far it sweeps astern, whichever ridge it grew from
+       depth — -1 far flank, 0 on the ridge, +1 the flank facing the viewer;
+               this is what stops a side-on animal reading as a paper cutout */
+  var DRAGON_LEAVES = [
+    /* head: supraorbital spine, the coronet, cheek and throat */
+    { u: 0.195, side:  1, lean:  0.55, len: 0.105, wide: 0.16, lobes: 1, depth:  0 },
+    { u: 0.250, side:  1, lean:  0.22, len: 0.225, wide: 0.13, lobes: 3, depth:  0 },
+    { u: 0.292, side:  1, lean:  0.48, len: 0.165, wide: 0.13, lobes: 2, depth:  0 },
+    { u: 0.222, side: -1, lean:  0.72, len: 0.090, wide: 0.17, lobes: 1, depth:  0 },
+    { u: 0.300, side: -1, lean:  0.40, len: 0.185, wide: 0.14, lobes: 2, depth:  0 },
+    { u: 0.262, side:  1, lean: -0.20, len: 0.140, wide: 0.14, lobes: 2, depth: -1 },
+    { u: 0.235, side: -1, lean:  0.14, len: 0.110, wide: 0.16, lobes: 1, depth: -1 },
+    /* nape and shoulder — the heaviest cluster on the animal */
+    { u: 0.335, side:  1, lean:  0.24, len: 0.225, wide: 0.13, lobes: 3, depth:  0 },
+    { u: 0.385, side:  1, lean:  0.44, len: 0.180, wide: 0.13, lobes: 2, depth:  0 },
+    { u: 0.360, side:  1, lean: -0.10, len: 0.155, wide: 0.14, lobes: 2, depth: -1 },
+    { u: 0.350, side: -1, lean:  0.14, len: 0.215, wide: 0.14, lobes: 3, depth:  0 },
+    { u: 0.320, side: -1, lean:  0.60, len: 0.115, wide: 0.16, lobes: 1, depth:  1 },
+    /* trunk */
+    { u: 0.440, side:  1, lean:  0.34, len: 0.205, wide: 0.13, lobes: 3, depth:  0 },
+    { u: 0.420, side: -1, lean:  0.26, len: 0.200, wide: 0.14, lobes: 2, depth:  0 },
+    { u: 0.490, side: -1, lean:  0.44, len: 0.165, wide: 0.13, lobes: 2, depth:  0 },
+    { u: 0.470, side:  1, lean: -0.06, len: 0.130, wide: 0.14, lobes: 2, depth: -1 },
+    { u: 0.455, side: -1, lean:  0.04, len: 0.135, wide: 0.16, lobes: 2, depth:  1 },
+    { u: 0.400, side:  1, lean:  0.62, len: 0.120, wide: 0.14, lobes: 2, depth:  1 },
+    /* tail base: the pair that trails furthest behind the animal */
+    { u: 0.560, side:  1, lean:  0.42, len: 0.200, wide: 0.13, lobes: 2, depth:  0 },
+    { u: 0.585, side: -1, lean:  0.50, len: 0.165, wide: 0.13, lobes: 2, depth:  0 },
+    { u: 0.540, side: -1, lean:  0.22, len: 0.115, wide: 0.15, lobes: 1, depth: -1 },
+    /* and down the tail, alternating and shrinking to nothing */
+    { u: 0.650, side:  1, lean:  0.50, len: 0.165, wide: 0.13, lobes: 2, depth:  0 },
+    { u: 0.700, side: -1, lean:  0.58, len: 0.140, wide: 0.13, lobes: 1, depth:  0 },
+    { u: 0.760, side:  1, lean:  0.58, len: 0.120, wide: 0.13, lobes: 1, depth:  0 },
+    { u: 0.820, side: -1, lean:  0.64, len: 0.098, wide: 0.14, lobes: 1, depth:  0 },
+    { u: 0.880, side:  1, lean:  0.64, len: 0.078, wide: 0.15, lobes: 1, depth:  0 },
+    { u: 0.940, side: -1, lean:  0.68, len: 0.058, wide: 0.16, lobes: 1, depth:  0 }
+  ];
+
+  /* Jitter the plan per animal, and give every leaf its own drift phase so
+     the whole plant never sways as one piece. */
   function dragonLeaves() {
     var out = [];
-    var spots = [0.27, 0.32, 0.37, 0.42, 0.46, 0.50, 0.55, 0.59,
-                 0.64, 0.69, 0.74, 0.79, 0.85, 0.90];
-    for (var i = 0; i < spots.length; i++) {
-      var side = i % 2 === 0 ? -1 : 1;
-      /* the biggest fronds cluster over the trunk and thin out down the
-         tail, which is what gives the animal its top-heavy weed shape */
-      var taper = 1 - Math.abs(spots[i] - 0.44) * 1.25;
+    for (var i = 0; i < DRAGON_LEAVES.length; i++) {
+      var s = DRAGON_LEAVES[i];
       out.push({
-        u: spots[i] + rr(-0.014, 0.014),
-        side: side,
-        len: (0.10 + 0.19 * Math.max(0.18, taper)) * rr(0.82, 1.2),
-        /* leaning fore and aft rather than all straight out is what keeps
-           the animal from reading as a sea urchin */
-        lean: rr(-0.62, 0.62),
-        phase: rr(0, TAU),
-        /* blade slenderness varies a lot: fat paddles next to thin straps
-           is what stops the animal reading as a row of identical leaves */
-        wide: rr(0.17, 0.34),
-        lobes: rnd() < 0.7 ? 2 : 1
+        u: s.u + rr(-0.010, 0.010),
+        side: s.side,
+        /* generous jitter on the lean especially: a real animal's leaves
+           splay, and a fixed sweep angle reads as one printed fern frond */
+        lean: s.lean + rr(-0.30, 0.30),
+        len: s.len * rr(0.86, 1.16),
+        wide: s.wide * rr(0.86, 1.18),
+        lobes: s.lobes,
+        depth: s.depth,
+        phase: rr(0, TAU)
       });
     }
-    /* the crown: the cluster over the nape and snout that a diver sees
-       first, and mistakes for a piece of drifting weed */
-    out.push({ u: 0.09, side: -1, len: 0.15 * rr(0.9, 1.1), lean: -0.75, phase: rr(0, TAU), wide: 0.20, lobes: 2 });
-    out.push({ u: 0.15, side: 1, len: 0.11 * rr(0.9, 1.1), lean: 0.85, phase: rr(0, TAU), wide: 0.30, lobes: 1 });
-    out.push({ u: 0.21, side: -1, len: 0.22 * rr(0.9, 1.1), lean: -0.28, phase: rr(0, TAU), wide: 0.19, lobes: 2 });
-    out.push({ u: 0.23, side: 1, len: 0.16 * rr(0.9, 1.1), lean: 0.42, phase: rr(0, TAU), wide: 0.26, lobes: 2 });
     return out;
   }
 
@@ -998,7 +1033,7 @@
   function buildScene() {
     rnd = mulberry32(seed);
     colonies = []; mounds = []; forms = []; fish = []; bubbles = []; waves = [];
-    critters = []; blacktips = []; rays = []; wrasses = [];
+    critters = []; blacktips = []; wrasses = [];
     lionfishes = []; tangs = []; dragons = [];
     GROWN_AT = 0;
 
@@ -1148,14 +1183,18 @@
 
     /* blacktip reef sharks: at 1.7 m they come out a fifth of the whale
        shark, which is the whole point — they patrol the crest in ones and
-       twos and are quick where the big animal is not */
-    var btPlane = LAYERS[2].scale;
+       twos and are quick where the big animal is not.
+
+       They work the near edge of the mid-water rather than the layer-2
+       plane, on CREST_PLANE with the wrasse — and short of LAYERS[3], so
+       they correctly pass behind the near coral. */
+    var btPlane = CREST_PLANE;
     var btCount = W > 700 ? 1 + ri(2) : 1;
     for (var bt = 0; bt < btCount; bt++) {
       var btLen = sizeOf(METRES.blacktip, btPlane) * rr(0.88, 1.12);
       blacktips.push({
         len: btLen,
-        y: H * rr(0.38, 0.58),
+        y: H * rr(0.42, 0.58),
         dir: rnd() < 0.5 ? -1 : 1,
         travel: W + btLen * 2.6,
         speed: speedOf(MPS.blacktip, btPlane) * rr(0.9, 1.15),
@@ -1167,8 +1206,12 @@
     }
 
     /* humphead wrasse: heavy and unhurried, close in over the near reef —
-       where a two-metre fish shaped like that actually spends its day */
-    var wrPlane = LAYERS[3].scale;
+       where a two-metre fish shaped like that actually spends its day. It
+       shares CREST_PLANE with the blacktip: it still swims lower and in
+       front of the layer-3 coral, but it is no longer sized a plane nearer
+       than the shark, which was quietly adding 7% to a fish that already
+       out-measures a blacktip. */
+    var wrPlane = CREST_PLANE;
     var wrCount = W > 900 && rnd() < 0.3 ? 2 : 1;
     for (var wr = 0; wr < wrCount; wr++) {
       var wrLen = sizeOf(METRES.wrasse, wrPlane) * rr(0.85, 1.1);
@@ -1186,44 +1229,30 @@
       });
     }
 
-    /* stingrays: hug the bed and glide across low, rather than cruising
-       the open water like the bigger animals above */
-    var rayPlane = 1.15;
-    var rCount = 1 + ri(2);
-    for (var ryI = 0; ryI < rCount; ryI++) {
-      /* the drawing spans 1.2L wingtip to wingtip, so back the disc out */
-      var raylen = sizeOf(METRES.stingray, rayPlane) / 1.2 * rr(0.85, 1.15);
-      rays.push({
-        len: raylen,
-        y: H * rr(0.72, 0.9),
-        dir: rnd() < 0.5 ? -1 : 1,
-        travel: W + raylen * 2.4,
-        speed: speedOf(MPS.stingray, rayPlane) * rr(0.9, 1.1),
-        travelled: rr(0, W),
-        rest: rr(0.22, 0.70),
-        t0: 2000 + ryI * 2600 + rr(0, 800),
-        phase: rr(0, TAU)
-      });
-    }
-
     /* ---- the foreground pane: small animals, close to the glass ---- */
 
     var fg = LAYERS[4].scale * nearBoost;
 
     /* lionfish: all fin and no hurry, so it stays in frame long enough to
-       be looked at properly */
-    var lfCount = W > 1100 && rnd() < 0.35 ? 2 : 1;
+       be looked at properly. It hangs low over the coral rather than out in
+       open water — which is where you actually find one, and it comes with
+       company, because that is the whole problem with lionfish: no local
+       predator, so they pile up over one head of coral. Four on screen is
+       the ceiling — past that the near plane is all quills. */
+    var lfCount = W > 1100 ? 3 + ri(2) : 2 + ri(2);
     for (var lf = 0; lf < lfCount; lf++) {
-      var lfLen = sizeOf(METRES.lionfish, fg) * rr(0.9, 1.1);
+      var lfLen = sizeOf(METRES.lionfish, fg) * rr(0.82, 1.18);
       lionfishes.push({
         len: lfLen,
-        y: H * rr(0.58, 0.82),
+        y: H * rr(0.78, 0.94),
         dir: rnd() < 0.5 ? -1 : 1,
         travel: W + lfLen * 2.6,
-        speed: speedOf(MPS.lionfish, fg) * rr(0.9, 1.1),
+        speed: speedOf(MPS.lionfish, fg) * rr(0.85, 1.15),
         travelled: rr(0, W),
-        rest: rr(0.26, 0.64),
-        t0: 3200 + lf * 5000 + rr(0, 1200),
+        rest: rr(0.12, 0.88),
+        /* tight stagger, so the last of them is in frame within seconds
+           rather than a third of a minute */
+        t0: 3200 + lf * 1100 + rr(0, 900),
         phase: rr(0, TAU)
       });
     }
@@ -1253,16 +1282,18 @@
       });
     }
 
-    /* leafy sea dragon: at 6 cm/s it is an order of magnitude slower than
-       anything else here, which is exactly right — it drifts rather than
-       swims, and the near plane is the only place its foliage reads */
+    /* leafy sea dragon: at 6 cm/s it is the slowest thing in the scene, a
+       shade under even the lionfish, which is exactly right — it drifts
+       rather than swims, and the near plane is the only place its foliage
+       reads. It keeps to the bottom of the frame because that is where it
+       lives: a hand's breadth off the bed, working the weed for mysids. */
     var dgPlane = fg * 1.3;
     var dgLen = sizeOf(METRES.dragon, dgPlane) * rr(0.9, 1.1);
     dragons.push({
       len: dgLen,
-      y: H * rr(0.64, 0.86),
+      y: H * rr(0.855, 0.945),
       dir: rnd() < 0.5 ? -1 : 1,
-      travel: W + dgLen * 2.6,
+      travel: W + dgLen * 3.2,
       speed: speedOf(MPS.dragon, dgPlane),
       travelled: rr(0, W),
       rest: rr(0.3, 0.6),
@@ -1954,7 +1985,7 @@
   function drawBlacktip(b, t, dt) {
     var fade = smooth((t - b.t0) / 1400);
     if (fade <= 0) return;
-    advance(b, dt, 0.38, 0.58, 0.34);
+    advance(b, dt, 0.42, 0.58, 0.34);
 
     var L = b.len;
     var x = b.dir > 0 ? -L * 1.3 + b.travelled : W + L * 1.3 - b.travelled;
@@ -2539,7 +2570,7 @@
   function drawLionfish(f, t, dt) {
     var fade = smooth((t - f.t0) / 1800);
     if (fade <= 0) return;
-    advance(f, dt, 0.58, 0.82, 0.42);
+    advance(f, dt, 0.80, 0.93, 0.42);
 
     var L = f.len;
     var x = f.dir > 0 ? -L * 1.3 + f.travelled : W + L * 1.3 - f.travelled;
@@ -2672,31 +2703,57 @@
 
   /* --------------------------------------------------- leafy sea dragon */
 
-  /* Spine and half-widths in body-local units: a long tube of a snout, a
-     deep trunk, then a tail that tapers away and curls under. */
+  /* Phycodurus eques, side-on, in the posture it actually holds while it
+     drifts: the snout angled down about forty degrees, a hard kink at the
+     nape, a level armoured trunk, and a long tail trailing away astern. The
+     tail is deliberately not curled — a leafy sea dragon, unlike a seahorse
+     or its weedy cousin, cannot grip anything with it.
+     Body-local units: +x forward, +y down. */
+  /* The knots are spaced to the animal's real proportions, because getting
+     these wrong is what turns a sea dragon into a pipefish: snout an eighth
+     of the length, head a ninth, trunk a bare quarter, and then half the
+     animal is tail. */
   var DRAGON_SPINE = [
-    [0.500, 0.118], [0.432, 0.100], [0.362, 0.076], [0.302, 0.046],
-    [0.252, 0.004], [0.192, -0.024], [0.112, -0.038], [0.030, -0.036],
-    [-0.050, -0.014], [-0.130, 0.028], [-0.200, 0.084], [-0.258, 0.152],
-    [-0.298, 0.228], [-0.310, 0.300], [-0.286, 0.352], [-0.236, 0.368]
+    [0.474, 0.095], [0.429, 0.048], [0.379, 0.006], [0.331, -0.021],
+    [0.279, -0.036], [0.211, -0.041], [0.144, -0.041], [0.076, -0.039],
+    [0.009, -0.034], [-0.061, -0.028], [-0.130, -0.020], [-0.200, -0.010],
+    [-0.269, 0.001], [-0.337, 0.015], [-0.406, 0.030], [-0.474, 0.047]
   ];
-  /* the bulge at index 4-5 is the head, the swell at 6-8 the brooding
-     trunk, and the rest tapers away down the prehensile tail */
-  var DRAGON_WIDTH = [
-    0.006, 0.009, 0.015, 0.032, 0.050, 0.054, 0.070, 0.072,
-    0.060, 0.046, 0.035, 0.027, 0.021, 0.015, 0.011, 0.007
+  /* The body is not a ribbon centred on its spine, and drawing it as one is
+     what makes a syngnathid look like a worm. The snout is a thin tube; the
+     head behind it is a deep box that starts abruptly; the back runs flat
+     from nape to vent while the belly swells into a keel underneath; and at
+     the vent the whole thing quits and becomes a tapering whip. */
+  var DRAGON_TOP = [
+    0.005, 0.012, 0.020, 0.052, 0.068, 0.074, 0.072, 0.062,
+    0.046, 0.035, 0.027, 0.021, 0.016, 0.012, 0.008, 0.003
   ];
-  var DRAGON_N = 52;
+  var DRAGON_BOT = [
+    0.005, 0.013, 0.024, 0.058, 0.088, 0.108, 0.114, 0.092,
+    0.050, 0.035, 0.028, 0.022, 0.017, 0.012, 0.008, 0.003
+  ];
+  var DRAGON_N = 64;
+  /* landmarks, as sample indices — the head furniture has to hang off the
+     same skeleton the outline does or it drifts loose of the animal */
+  var DG_SNOUT_BASE = 9, DG_EYE = 13, DG_CORONET = 15, DG_GILL = 18;
+  var DG_PECTORAL = 19, DG_VENT = 34;
   /* scratch, reused every frame so the drift doesn't allocate */
   var dgX = new Float32Array(DRAGON_N + 1);
   var dgY = new Float32Array(DRAGON_N + 1);
   var dgNX = new Float32Array(DRAGON_N + 1);
   var dgNY = new Float32Array(DRAGON_N + 1);
-  var dgW = new Float32Array(DRAGON_N + 1);
+  var dgT = new Float32Array(DRAGON_N + 1);
+  var dgB = new Float32Array(DRAGON_N + 1);
 
   function catmull(a, b, c, d, u) {
     var u2 = u * u, u3 = u2 * u;
     return 0.5 * (2 * b + (c - a) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (3 * b - 3 * c + d - a) * u3);
+  }
+
+  /* catmull over a flat array of knots, for the two width profiles */
+  function catmullAt(arr, k, s, last) {
+    return catmull(arr[Math.max(0, k - 1)], arr[k], arr[k + 1],
+                   arr[Math.min(last, k + 2)], s);
   }
 
   function sampleDragon(L, drift) {
@@ -2711,277 +2768,417 @@
       var p1 = DRAGON_SPINE[k];
       var p2 = DRAGON_SPINE[k + 1];
       var p3 = DRAGON_SPINE[Math.min(last, k + 2)];
-      /* the drift builds toward the tail, the way a held-still animal
-         idles against the current */
-      var flex = drift * f * f;
+      /* the trunk is a rigid box of bone and barely moves — everything this
+         animal does with its body, it does with the last third of it */
+      var g = f > 0.5 ? (f - 0.5) / 0.5 : 0;
+      var flex = drift * g * g;
+      /* every bony ring stands a hair proud of the one behind it, and that
+         faint scalloping is most of what makes a syngnathid outline look
+         machined instead of drawn */
+      var ring = 1 + 0.045 * Math.cos(f * 138);
       dgX[i] = L * catmull(p0[0], p1[0], p2[0], p3[0], s);
       dgY[i] = L * (catmull(p0[1], p1[1], p2[1], p3[1], s) + flex);
-      var w0 = DRAGON_WIDTH[k], w1 = DRAGON_WIDTH[k + 1];
-      dgW[i] = L * (w0 + (w1 - w0) * s);
+      dgT[i] = L * ring * Math.max(0.002, catmullAt(DRAGON_TOP, k, s, last));
+      dgB[i] = L * ring * Math.max(0.002, catmullAt(DRAGON_BOT, k, s, last));
     }
     for (i = 0; i <= DRAGON_N; i++) {
       var a = i > 0 ? i - 1 : 0, b = i < DRAGON_N ? i + 1 : DRAGON_N;
       var tx = dgX[b] - dgX[a], ty = dgY[b] - dgY[a];
       var m = Math.sqrt(tx * tx + ty * ty) || 1;
+      /* +N is dorsal, -N ventral, whichever way the spine happens to run */
       dgNX[i] = -ty / m;
       dgNY[i] = tx / m;
     }
   }
 
-  /* One leaflet, in the leaf's own frame. Deliberately lopsided — a
+  /* the outline, dorsal ridge forward then ventral ridge back */
+  function dragonPath(shrink) {
+    var i;
+    ctx.beginPath();
+    for (i = 0; i <= DRAGON_N; i++) {
+      ctx.lineTo(dgX[i] + dgNX[i] * dgT[i] * shrink, dgY[i] + dgNY[i] * dgT[i] * shrink);
+    }
+    for (i = DRAGON_N; i >= 0; i--) {
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i] * shrink, dgY[i] - dgNY[i] * dgB[i] * shrink);
+    }
+    ctx.closePath();
+  }
+
+  /* One leaflet, in the leaf's own frame: a lance that swells past its root
+     and draws out to a point, never a paddle. Deliberately lopsided too — a
      symmetric blade reads as clip-art foliage, and the whole point of this
      animal is that it does not look drawn. */
   function leafBlade(x0, len, wide) {
     ctx.beginPath();
     ctx.moveTo(x0, 0);
-    ctx.bezierCurveTo(x0 + len * 0.16, -wide * 0.72, x0 + len * 0.34, -wide, x0 + len * 0.54, -wide * 0.84);
-    ctx.bezierCurveTo(x0 + len * 0.72, -wide * 0.70, x0 + len * 0.90, -wide * 0.56, x0 + len, 0);
-    ctx.bezierCurveTo(x0 + len * 0.84, wide * 0.62, x0 + len * 0.62, wide * 0.96, x0 + len * 0.42, wide * 0.92);
-    ctx.bezierCurveTo(x0 + len * 0.24, wide * 0.88, x0 + len * 0.11, wide * 0.52, x0, 0);
+    ctx.bezierCurveTo(x0 + len * 0.12, -wide * 0.80, x0 + len * 0.34, -wide, x0 + len * 0.70, -wide * 0.44);
+    ctx.quadraticCurveTo(x0 + len * 0.90, -wide * 0.18, x0 + len, 0);
+    ctx.quadraticCurveTo(x0 + len * 0.88, wide * 0.24, x0 + len * 0.62, wide * 0.58);
+    ctx.bezierCurveTo(x0 + len * 0.32, wide * 0.94, x0 + len * 0.10, wide * 0.68, x0, 0);
     ctx.closePath();
     ctx.fill();
+  }
+
+  /* One appendage, root to tip: a bare bony stalk, a blade broadest past
+     its middle, one or two lobes branching off the stalk, and a midrib with
+     veins running off it. */
+  function drawDragonLeaf(lf, L, t, fade, base, edge, cream) {
+    var idx = Math.round(clamp01(lf.u) * DRAGON_N);
+    var w = lf.side > 0 ? dgT[idx] : dgB[idx];
+    var nx = dgNX[idx] * lf.side, ny = dgNY[idx] * lf.side;
+    /* a ridge leaf stands on the outline; a flank leaf roots inside it */
+    var root = lf.depth === 0 ? 0.9 : lf.depth < 0 ? 0.5 : 0.28;
+    var sway = reduced ? 0 : Math.sin(t * 0.0013 + lf.phase) * 0.20;
+    var ang = Math.atan2(ny, nx) - lf.side * (lf.lean + sway);
+    var len = L * lf.len * (lf.depth === 0 ? 1 : lf.depth < 0 ? 0.86 : 0.94);
+    var wide = len * lf.wide;
+    var a = fade * (lf.depth === 0 ? 0.9 : lf.depth < 0 ? 0.58 : 1);
+
+    ctx.save();
+    ctx.translate(dgX[idx] + nx * w * root, dgY[idx] + ny * w * root);
+    ctx.rotate(ang);
+
+    ctx.strokeStyle = rgba(edge, 0.78 * a);
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(0.6, len * 0.07);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len * 0.38, 0);
+    ctx.stroke();
+
+    /* the lobes go down first, so the main blade sits over them */
+    if (lf.lobes > 1) {
+      ctx.save();
+      ctx.translate(len * 0.28, 0);
+      ctx.rotate(-0.50 + sway * 0.5);
+      ctx.fillStyle = rgba(mix(base, cream, 0.18), 0.70 * a);
+      leafBlade(0, len * 0.48, wide * 0.62);
+      ctx.restore();
+    }
+    if (lf.lobes > 2) {
+      ctx.save();
+      ctx.translate(len * 0.34, 0);
+      ctx.rotate(0.56 - sway * 0.5);
+      ctx.fillStyle = rgba(mix(base, [0, 0, 0], 0.14), 0.70 * a);
+      leafBlade(0, len * 0.42, wide * 0.58);
+      ctx.restore();
+    }
+
+    ctx.fillStyle = rgba(base, 0.76 * a);
+    leafBlade(len * 0.28, len * 0.72, wide);
+    ctx.strokeStyle = rgba(edge, 0.30 * a);
+    ctx.lineWidth = Math.max(0.4, len * 0.032);
+    ctx.stroke();
+
+    ctx.strokeStyle = rgba(edge, 0.46 * a);
+    ctx.lineWidth = Math.max(0.4, len * 0.024);
+    ctx.beginPath();
+    ctx.moveTo(len * 0.30, 0);
+    ctx.lineTo(len * 0.92, 0);
+    ctx.moveTo(len * 0.58, 0);
+    ctx.lineTo(len * 0.76, -wide * 0.52);
+    ctx.moveTo(len * 0.62, 0);
+    ctx.lineTo(len * 0.80, wide * 0.50);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* Everything on one flank, so the body can be drawn between the passes. */
+  function dragonLeafPass(d, L, t, fade, want, leafc, farLeaf, cream) {
+    for (var i = 0; i < d.leaves.length; i++) {
+      var lf = d.leaves[i];
+      if (lf.depth !== want) continue;
+      var c = want < 0 ? farLeaf : want > 0 ? mix(leafc, cream, 0.12) : leafc;
+      drawDragonLeaf(lf, L, t, fade, c, mix(c, [0, 0, 0], 0.28), cream);
+    }
   }
 
   function drawDragon(d, t, dt) {
     var fade = smooth((t - d.t0) / 2200);
     if (fade <= 0) return;
-    advance(d, dt, 0.64, 0.86, 0.5);
+    /* it works the bed, so on each lap it re-picks a depth in the bottom
+       tenth of the frame rather than anywhere in open water */
+    advance(d, dt, 0.855, 0.945, 0.5);
 
     var L = d.len;
-    var x = d.dir > 0 ? -L * 1.3 + d.travelled : W + L * 1.3 - d.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.00040 + d.phase) * L * 0.05;
-    var drift = reduced ? 0 : Math.sin(t * 0.00075 + d.phase) * 0.055;
-    var flutter = reduced ? 0 : Math.sin(t * 0.021 + d.phase);
+    var x = d.dir > 0 ? -L * 1.5 + d.travelled : W + L * 1.5 - d.travelled;
+    var bob = reduced ? 0 : Math.sin(t * 0.00040 + d.phase) * L * 0.030;
+    var pitch = reduced ? 0 : Math.sin(t * 0.00031 + d.phase * 1.7) * 0.05;
+    var drift = reduced ? 0 : Math.sin(t * 0.00075 + d.phase) * 0.045;
+    /* the fins beat an order of magnitude faster than the animal travels —
+       they are the only part of a sea dragon that ever looks hurried */
+    var flutter = reduced ? 0 : Math.sin(t * 0.019 + d.phase);
+    var undul = reduced ? 0 : t * 0.012 + d.phase;
 
     var body = hex2rgb(pal.dragon);
     var cream = hex2rgb(pal.cream);
-    var dark = mix(body, [0, 0, 0], 0.4);
+    var dark = mix(body, [0, 0, 0], 0.42);
+    var deep = mix(body, [0, 0, 0], 0.62);
+    var pale = mix(body, cream, 0.55);
     /* the appendages are outgrowths of the animal, not decorations stuck
        on it, so they carry a good share of the body's own colour */
-    var leafc = mix(hex2rgb(pal.dragonLeaf), body, 0.32);
-    var leafEdge = mix(leafc, [0, 0, 0], 0.35);
+    var leafc = mix(hex2rgb(pal.dragonLeaf), body, 0.52);
+    /* and the far-flank ones sit behind that much more water */
+    var farLeaf = mix(leafc, hex2rgb(pal.water[2]), 0.16);
+    var i, k, h, span;
 
     ctx.save();
     ctx.translate(x, d.y + bob);
     ctx.scale(d.dir, 1);
-    ctx.rotate(drift * 0.6);
+    ctx.rotate(drift * 0.5 + pitch);
 
     sampleDragon(L, drift);
 
-    /* the appendages hang behind the body so the trunk stays legible */
-    for (var li2 = 0; li2 < d.leaves.length; li2++) {
-      var lf = d.leaves[li2];
-      var idx = Math.round(clamp01(lf.u) * DRAGON_N);
-      var sway = reduced ? 0 : Math.sin(t * 0.0013 + lf.phase) * 0.24;
-      var nx = dgNX[idx] * lf.side, ny = dgNY[idx] * lf.side;
-      var bxp = dgX[idx] + nx * dgW[idx] * 0.8;
-      var byp = dgY[idx] + ny * dgW[idx] * 0.8;
-      var ang = Math.atan2(ny, nx) + lf.lean + sway;
-      var len = L * lf.len;
-      var wide = len * lf.wide;
+    /* far flank, then the ridges — both behind the body */
+    dragonLeafPass(d, L, t, fade, -1, leafc, farLeaf, cream);
+    dragonLeafPass(d, L, t, fade, 0, leafc, farLeaf, cream);
 
-      ctx.save();
-      ctx.translate(bxp, byp);
-      ctx.rotate(ang);
-      ctx.strokeStyle = rgba(dark, 0.75 * fade);
-      ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(0.6, len * 0.075);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(len * 0.40, 0);
-      ctx.stroke();
-
-      ctx.fillStyle = rgba(leafc, 0.88 * fade);
-      leafBlade(len * 0.32, len * 0.68, wide);
-      ctx.strokeStyle = rgba(leafEdge, 0.42 * fade);
-      ctx.lineWidth = Math.max(0.4, len * 0.035);
-      ctx.stroke();
-      if (lf.lobes > 1) {
-        ctx.save();
-        ctx.translate(len * 0.38, 0);
-        ctx.rotate(-0.68 + sway * 0.4);
-        ctx.fillStyle = rgba(mix(leafc, cream, 0.20), 0.84 * fade);
-        leafBlade(0, len * 0.46, wide * 0.60);
-        ctx.restore();
-        ctx.save();
-        ctx.translate(len * 0.42, 0);
-        ctx.rotate(0.74 - sway * 0.4);
-        ctx.fillStyle = rgba(mix(leafc, [0, 0, 0], 0.16), 0.84 * fade);
-        leafBlade(0, len * 0.40, wide * 0.56);
-        ctx.restore();
-      }
-      /* midrib */
-      ctx.strokeStyle = rgba(leafEdge, 0.5 * fade);
-      ctx.lineWidth = Math.max(0.4, len * 0.028);
-      ctx.beginPath();
-      ctx.moveTo(len * 0.34, 0);
-      ctx.lineTo(len * 0.94, 0);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    /* the near-invisible fins: a dorsal ripple over the trunk and a
-       pectoral by the gill, both beating far faster than the animal moves */
-    ctx.fillStyle = rgba(cream, 0.13 * fade);
+    /* The dorsal fin: a clear membrane over the tail base, rippling far too
+       fast to follow. It and the pectorals are the whole engine — there is
+       no tail fin behind it, and nothing else on the animal pushes water,
+       which is why it can be swimming and still read as drifting weed. */
+    ctx.fillStyle = rgba(mix(cream, body, 0.58), 0.40 * fade);
     ctx.beginPath();
-    for (var fi = 14; fi <= 30; fi++) {
-      ctx.lineTo(dgX[fi] - dgNX[fi] * dgW[fi], dgY[fi] - dgNY[fi] * dgW[fi]);
+    for (i = 32; i <= 46; i++) {
+      ctx.lineTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
     }
-    for (var fj = 30; fj >= 14; fj--) {
-      var ripple = 1 + 0.55 * Math.sin(fj * 0.9 + flutter * 2.4);
-      ctx.lineTo(
-        dgX[fj] - dgNX[fj] * (dgW[fj] + L * 0.022 * ripple),
-        dgY[fj] - dgNY[fj] * (dgW[fj] + L * 0.022 * ripple)
-      );
+    for (i = 46; i >= 32; i--) {
+      span = 0.5 + 0.5 * Math.cos(Math.PI * (i - 39) / 7);
+      h = dgT[i] + L * 0.026 * span * (1 + 0.20 * Math.sin(i * 0.8 + undul));
+      ctx.lineTo(dgX[i] + dgNX[i] * h, dgY[i] + dgNY[i] * h);
     }
     ctx.closePath();
     ctx.fill();
-
-    /* the body itself: one tapering ribbon from snout tip to curled tail */
+    ctx.strokeStyle = rgba(mix(cream, body, 0.10), 0.40 * fade);
+    ctx.lineWidth = Math.max(0.4, L * 0.004);
     ctx.beginPath();
-    ctx.moveTo(dgX[0], dgY[0]);
-    for (var i2 = 0; i2 <= DRAGON_N; i2++) {
-      ctx.lineTo(dgX[i2] + dgNX[i2] * dgW[i2], dgY[i2] + dgNY[i2] * dgW[i2]);
+    for (i = 33; i < 46; i += 2) {
+      span = 0.5 + 0.5 * Math.cos(Math.PI * (i - 39) / 7);
+      h = dgT[i] + L * 0.026 * span * (1 + 0.20 * Math.sin(i * 0.8 + undul));
+      ctx.moveTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
+      ctx.lineTo(dgX[i] + dgNX[i] * h, dgY[i] + dgNY[i] * h);
     }
-    for (var j2 = DRAGON_N; j2 >= 0; j2--) {
-      ctx.lineTo(dgX[j2] - dgNX[j2] * dgW[j2], dgY[j2] - dgNY[j2] * dgW[j2]);
-    }
+    ctx.stroke();
+
+    /* the anal fin, which is a nub barely worth the name */
+    ctx.fillStyle = rgba(mix(cream, body, 0.58), 0.40 * fade);
+    ctx.beginPath();
+    ctx.moveTo(dgX[DG_VENT - 2] - dgNX[DG_VENT - 2] * dgB[DG_VENT - 2],
+               dgY[DG_VENT - 2] - dgNY[DG_VENT - 2] * dgB[DG_VENT - 2]);
+    ctx.lineTo(dgX[DG_VENT] - dgNX[DG_VENT] * (dgB[DG_VENT] + L * 0.016),
+               dgY[DG_VENT] - dgNY[DG_VENT] * (dgB[DG_VENT] + L * 0.016));
+    ctx.lineTo(dgX[DG_VENT + 2] - dgNX[DG_VENT + 2] * dgB[DG_VENT + 2],
+               dgY[DG_VENT + 2] - dgNY[DG_VENT + 2] * dgB[DG_VENT + 2]);
     ctx.closePath();
+    ctx.fill();
+
+    /* the body itself */
+    dragonPath(1);
     ctx.fillStyle = rgba(body, fade);
     ctx.fill();
 
     ctx.save();
     ctx.clip();
-    /* pale bars over the trunk, dark rings down the tail */
-    ctx.lineCap = 'butt';
-    for (var bi = 6; bi < DRAGON_N; bi += 3) {
-      var deepEnd = bi / DRAGON_N;
-      ctx.strokeStyle = deepEnd < 0.55
-        ? rgba(cream, 0.34 * fade)
-        : rgba(dark, 0.42 * fade);
-      ctx.lineWidth = Math.max(0.6, L * (deepEnd < 0.55 ? 0.012 : 0.009));
-      ctx.beginPath();
-      ctx.moveTo(dgX[bi] + dgNX[bi] * dgW[bi], dgY[bi] + dgNY[bi] * dgW[bi]);
-      ctx.lineTo(dgX[bi] - dgNX[bi] * dgW[bi], dgY[bi] - dgNY[bi] * dgW[bi]);
-      ctx.stroke();
-    }
-    /* the shaded underside */
-    ctx.fillStyle = rgba(dark, 0.18 * fade);
+
+    /* countershading as two flat tones rather than a gradient, to stay in
+       the same gouache the rest of the reef is painted in */
     ctx.beginPath();
-    for (var ui = 0; ui <= DRAGON_N; ui++) {
-      ctx.lineTo(dgX[ui] + dgNX[ui] * dgW[ui], dgY[ui] + dgNY[ui] * dgW[ui]);
+    for (i = 0; i <= DRAGON_N; i++) {
+      ctx.lineTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
     }
-    for (var uj = DRAGON_N; uj >= 0; uj--) {
-      ctx.lineTo(dgX[uj] + dgNX[uj] * dgW[uj] * 0.15, dgY[uj] + dgNY[uj] * dgW[uj] * 0.15);
+    for (i = DRAGON_N; i >= 0; i--) {
+      ctx.lineTo(dgX[i] + dgNX[i] * dgT[i] * 0.35, dgY[i] + dgNY[i] * dgT[i] * 0.35);
     }
     ctx.closePath();
+    ctx.fillStyle = rgba(dark, 0.26 * fade);
     ctx.fill();
+
+    ctx.beginPath();
+    for (i = 0; i <= DRAGON_N; i++) {
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i], dgY[i] - dgNY[i] * dgB[i]);
+    }
+    for (i = DRAGON_N; i >= 0; i--) {
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i] * 0.45, dgY[i] - dgNY[i] * dgB[i] * 0.45);
+    }
+    ctx.closePath();
+    ctx.fillStyle = rgba(pale, 0.20 * fade);
+    ctx.fill();
+
+    /* the cheek plate, and the ridges that fan back across it from the eye */
+    ctx.beginPath();
+    for (i = 10; i <= 18; i++) {
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i], dgY[i] - dgNY[i] * dgB[i]);
+    }
+    for (i = 18; i >= 10; i--) ctx.lineTo(dgX[i], dgY[i]);
+    ctx.closePath();
+    ctx.fillStyle = rgba(pale, 0.30 * fade);
+    ctx.fill();
+    ctx.strokeStyle = rgba(deep, 0.18 * fade);
+    ctx.lineWidth = Math.max(0.4, L * 0.005);
+    ctx.beginPath();
+    for (k = 0; k < 3; k++) {
+      var q = 15 + k * 2;
+      ctx.moveTo(dgX[DG_EYE], dgY[DG_EYE]);
+      ctx.lineTo(dgX[q] - dgNX[q] * dgB[q] * (0.5 + k * 0.22),
+                 dgY[q] - dgNY[q] * dgB[q] * (0.5 + k * 0.22));
+    }
+    ctx.stroke();
+
+    /* The bony rings: eighteen round the trunk and twice that down the
+       tail. A syngnathid wears its skeleton on the outside, and this is
+       what you actually see of it — a seam every few millimetres, the whole
+       length of the animal. */
+    ctx.lineCap = 'butt';
+    ctx.lineWidth = Math.max(0.4, L * 0.005);
+    ctx.strokeStyle = rgba(deep, 0.16 * fade);
+    ctx.beginPath();
+    for (i = 4; i < DRAGON_N; i += 2) {
+      ctx.moveTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i], dgY[i] - dgNY[i] * dgB[i]);
+    }
+    ctx.stroke();
+
+    /* pale bands round the snout, pale bars every few rings over the trunk,
+       dark rings down the tail where the bars give out */
+    ctx.strokeStyle = rgba(pale, 0.44 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.006);
+    ctx.beginPath();
+    for (i = 3; i <= DG_SNOUT_BASE; i += 3) {
+      ctx.moveTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i], dgY[i] - dgNY[i] * dgB[i]);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = rgba(cream, 0.30 * fade);
+    ctx.lineWidth = Math.max(0.7, L * 0.011);
+    ctx.beginPath();
+    for (i = 18; i <= 32; i += 4) {
+      ctx.moveTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i] * 0.9, dgY[i] - dgNY[i] * dgB[i] * 0.9);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = rgba(deep, 0.34 * fade);
+    ctx.lineWidth = Math.max(0.5, L * 0.008);
+    ctx.beginPath();
+    for (i = 38; i < DRAGON_N - 2; i += 4) {
+      ctx.moveTo(dgX[i] + dgNX[i] * dgT[i], dgY[i] + dgNY[i] * dgT[i]);
+      ctx.lineTo(dgX[i] - dgNX[i] * dgB[i], dgY[i] - dgNY[i] * dgB[i]);
+    }
+    ctx.stroke();
+
+    /* cream beading along the flank, the same detailing the corals carry */
+    ctx.fillStyle = rgba(cream, 0.28 * fade);
+    for (i = 20; i <= 32; i += 5) {
+      ctx.beginPath();
+      ctx.arc(dgX[i] + dgNX[i] * dgT[i] * 0.15, dgY[i] + dgNY[i] * dgT[i] * 0.15,
+              Math.max(0.5, L * 0.005), 0, TAU);
+      ctx.fill();
+    }
     ctx.restore();
 
-    /* the bony ring plates: a syngnathid wears its skeleton on the outside,
-       and the little spurs along the ridge are how you can tell */
-    ctx.fillStyle = rgba(dark, 0.45 * fade);
-    for (var ri2 = 16; ri2 < DRAGON_N - 2; ri2 += 4) {
-      var spur = L * 0.014 * (1 - ri2 / DRAGON_N * 0.6);
+    /* The spines standing at the ring junctions, dorsal and ventral. Every
+       leaf on the animal grows out of one of these, so they have to be
+       there whether or not a leaf happens to be sitting on them. */
+    ctx.fillStyle = rgba(dark, 0.36 * fade);
+    for (k = 0; k < 2; k++) {
+      var from = k === 0 ? 17 : 47, to = k === 0 ? 30 : DRAGON_N - 2;
+      for (i = from; i < to; i += 3) {
+        var sp = L * 0.009 * (1 - i / DRAGON_N * 0.55);
+        ctx.beginPath();
+        ctx.moveTo(dgX[i - 1] + dgNX[i - 1] * dgT[i - 1], dgY[i - 1] + dgNY[i - 1] * dgT[i - 1]);
+        ctx.lineTo(dgX[i] + dgNX[i] * (dgT[i] + sp), dgY[i] + dgNY[i] * (dgT[i] + sp));
+        ctx.lineTo(dgX[i + 1] + dgNX[i + 1] * dgT[i + 1], dgY[i + 1] + dgNY[i + 1] * dgT[i + 1]);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    for (i = 18; i < DRAGON_N - 2; i += 4) {
+      var spv = L * 0.007 * (1 - i / DRAGON_N * 0.5);
       ctx.beginPath();
-      ctx.moveTo(dgX[ri2 - 1] - dgNX[ri2 - 1] * dgW[ri2 - 1], dgY[ri2 - 1] - dgNY[ri2 - 1] * dgW[ri2 - 1]);
-      ctx.lineTo(dgX[ri2] - dgNX[ri2] * (dgW[ri2] + spur), dgY[ri2] - dgNY[ri2] * (dgW[ri2] + spur));
-      ctx.lineTo(dgX[ri2 + 1] - dgNX[ri2 + 1] * dgW[ri2 + 1], dgY[ri2 + 1] - dgNY[ri2 + 1] * dgW[ri2 + 1]);
+      ctx.moveTo(dgX[i - 1] - dgNX[i - 1] * dgB[i - 1], dgY[i - 1] - dgNY[i - 1] * dgB[i - 1]);
+      ctx.lineTo(dgX[i] - dgNX[i] * (dgB[i] + spv), dgY[i] - dgNY[i] * (dgB[i] + spv));
+      ctx.lineTo(dgX[i + 1] - dgNX[i + 1] * dgB[i + 1], dgY[i + 1] - dgNY[i + 1] * dgB[i + 1]);
       ctx.closePath();
       ctx.fill();
     }
 
-    /* pectoral flutter behind the head */
-    var pi2 = 13;
-    ctx.save();
-    ctx.translate(dgX[pi2], dgY[pi2]);
-    ctx.rotate(1.1 + flutter * 0.25);
-    ctx.fillStyle = rgba(cream, 0.22 * fade);
+    /* the coronet: the bony crest over the back of the head that the
+       biggest leaf of all grows from */
+    ctx.fillStyle = rgba(dark, 0.6 * fade);
     ctx.beginPath();
-    ctx.ellipse(L * 0.035, 0, L * 0.038, L * 0.016, 0, 0, TAU);
+    ctx.moveTo(dgX[DG_CORONET - 2] + dgNX[DG_CORONET - 2] * dgT[DG_CORONET - 2],
+               dgY[DG_CORONET - 2] + dgNY[DG_CORONET - 2] * dgT[DG_CORONET - 2]);
+    ctx.lineTo(dgX[DG_CORONET] + dgNX[DG_CORONET] * (dgT[DG_CORONET] + L * 0.048) - L * 0.022,
+               dgY[DG_CORONET] + dgNY[DG_CORONET] * (dgT[DG_CORONET] + L * 0.048));
+    ctx.lineTo(dgX[DG_CORONET + 2] + dgNX[DG_CORONET + 2] * dgT[DG_CORONET + 2],
+               dgY[DG_CORONET + 2] + dgNY[DG_CORONET + 2] * dgT[DG_CORONET + 2]);
+    ctx.closePath();
     ctx.fill();
+
+    /* the pectorals, whirring away on the neck */
+    ctx.save();
+    ctx.translate(dgX[DG_PECTORAL], dgY[DG_PECTORAL] + dgT[DG_PECTORAL] * 0.35);
+    ctx.rotate(2.86 + flutter * 0.22);
+    ctx.fillStyle = rgba(mix(cream, body, 0.55), 0.42 * fade);
+    ctx.beginPath();
+    ctx.ellipse(L * 0.036, 0, L * 0.042, L * 0.014, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = rgba(mix(cream, body, 0.10), 0.44 * fade);
+    ctx.lineWidth = Math.max(0.4, L * 0.004);
+    ctx.beginPath();
+    for (k = -2; k <= 2; k++) {
+      ctx.moveTo(0, 0);
+      ctx.lineTo(L * 0.068, k * L * 0.007);
+    }
+    ctx.stroke();
     ctx.restore();
 
-    /* eye, set just behind the base of that long snout */
-    var ei = 10;
-    ctx.fillStyle = rgba(cream, 0.6 * fade);
+    /* the gill opening, a slot high on the back of the head */
+    ctx.fillStyle = rgba(deep, 0.34 * fade);
     ctx.beginPath();
-    ctx.arc(dgX[ei], dgY[ei] - L * 0.006, L * 0.019, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = rgba(mix(dark, [0, 0, 0], 0.4), 0.95 * fade);
-    ctx.beginPath();
-    ctx.arc(dgX[ei] + L * 0.003, dgY[ei] - L * 0.007, L * 0.011, 0, TAU);
+    ctx.ellipse(dgX[DG_GILL] + dgNX[DG_GILL] * dgT[DG_GILL] * 0.45,
+                dgY[DG_GILL] + dgNY[DG_GILL] * dgT[DG_GILL] * 0.45,
+                L * 0.008, L * 0.004, -0.5, 0, TAU);
     ctx.fill();
 
-    ctx.restore();
-  }
-
-  /* ---------------------------------------------------------- stingray */
-
-  function drawStingray(r, t, dt) {
-    var fade = smooth((t - r.t0) / 1400);
-    if (fade <= 0) return;
-
-    advance(r, dt, 0.72, 0.9, 0.6);
-
-    var L = r.len;
-    var x = r.dir > 0 ? -L * 0.9 + r.travelled : W + L * 0.9 - r.travelled;
-    var glide = reduced ? 0 : Math.sin(t * 0.0016 + r.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.0009 + r.phase) * L * 0.05;
-    var y = r.y + bob;
-
-    var body = hex2rgb(pal.ray);
-    var belly = hex2rgb(pal.rayBelly);
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(r.dir, 1);
-    ctx.rotate(glide * 0.06);
-
-    /* whip tail, drawn first so the body's rear point covers its root */
-    ctx.strokeStyle = rgba(mix(body, [0, 0, 0], 0.1), 0.9 * fade);
+    /* the mouth: a hinged trapdoor at the tip of the tube, and the only
+       moving part of a feeding apparatus that works by suction */
+    ctx.strokeStyle = rgba(deep, 0.55 * fade);
     ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(1, L * 0.02);
+    ctx.lineWidth = Math.max(0.5, L * 0.005);
     ctx.beginPath();
-    ctx.moveTo(-L * 0.28, 0);
-    ctx.quadraticCurveTo(-L * 0.55, glide * L * 0.06, -L * 0.85, glide * L * 0.14 - L * 0.02);
+    ctx.moveTo(dgX[1] - dgNX[1] * dgB[1] * 1.1, dgY[1] - dgNY[1] * dgB[1] * 1.1);
+    ctx.lineTo(dgX[3] - dgNX[3] * dgB[3] * 1.1, dgY[3] - dgNY[3] * dgB[3] * 1.1);
     ctx.stroke();
 
-    /* the kite-shaped disc, wingtips rippling gently with `glide` */
-    ctx.fillStyle = rgba(body, fade);
+    /* the eye, with the dark lines that radiate off it — a real field mark,
+       and the thing that makes the head read as a head and not a knot of
+       weed with a stick on the front */
+    var ex = dgX[DG_EYE] + dgNX[DG_EYE] * dgT[DG_EYE] * 0.30;
+    var ey = dgY[DG_EYE] + dgNY[DG_EYE] * dgT[DG_EYE] * 0.30;
+    ctx.strokeStyle = rgba(deep, 0.30 * fade);
+    ctx.lineWidth = Math.max(0.4, L * 0.005);
     ctx.beginPath();
-    ctx.moveTo(L * 0.5, 0);
-    ctx.quadraticCurveTo(L * 0.25, -L * 0.18 - glide * L * 0.03, -L * 0.05, -L * 0.60 - glide * L * 0.05);
-    ctx.quadraticCurveTo(-L * 0.26, -L * 0.34, -L * 0.32, -L * 0.08);
-    ctx.quadraticCurveTo(-L * 0.36, 0, -L * 0.32, L * 0.08);
-    ctx.quadraticCurveTo(-L * 0.26, L * 0.34, -L * 0.05, L * 0.60 + glide * L * 0.05);
-    ctx.quadraticCurveTo(L * 0.25, L * 0.18 + glide * L * 0.03, L * 0.5, 0);
-    ctx.closePath();
+    for (k = 0; k < 6; k++) {
+      var ea = k * (TAU / 6) + 0.35;
+      ctx.moveTo(ex + Math.cos(ea) * L * 0.021, ey + Math.sin(ea) * L * 0.021);
+      ctx.lineTo(ex + Math.cos(ea) * L * 0.030, ey + Math.sin(ea) * L * 0.030);
+    }
+    ctx.stroke();
+    ctx.fillStyle = rgba(cream, 0.72 * fade);
+    ctx.beginPath();
+    ctx.arc(ex, ey, L * 0.020, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(mix(deep, [0, 0, 0], 0.45), 0.95 * fade);
+    ctx.beginPath();
+    ctx.arc(ex + L * 0.004, ey + L * 0.002, L * 0.012, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = rgba(cream, 0.8 * fade);
+    ctx.beginPath();
+    ctx.arc(ex + L * 0.008, ey - L * 0.003, L * 0.004, 0, TAU);
     ctx.fill();
 
-    /* pale trailing edge along the wings */
-    ctx.save();
-    ctx.clip();
-    ctx.fillStyle = rgba(belly, 0.28 * fade);
-    ctx.beginPath();
-    ctx.moveTo(L * 0.3, -L * 0.42);
-    ctx.quadraticCurveTo(-L * 0.1, -L * 0.5, -L * 0.3, -L * 0.2);
-    ctx.lineTo(-L * 0.34, 0);
-    ctx.lineTo(-L * 0.3, L * 0.2);
-    ctx.quadraticCurveTo(-L * 0.1, L * 0.5, L * 0.3, L * 0.42);
-    ctx.lineTo(L * 0.2, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    /* eyes on top of the head */
-    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.5), 0.85 * fade);
-    ctx.beginPath();
-    ctx.arc(L * 0.32, -L * 0.05, Math.max(1, L * 0.014), 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(L * 0.32, L * 0.05, Math.max(1, L * 0.014), 0, TAU);
-    ctx.fill();
+    /* and the near flank last, hanging over the body */
+    dragonLeafPass(d, L, t, fade, 1, leafc, farLeaf, cream);
 
     ctx.restore();
   }
@@ -3188,7 +3385,6 @@
       if (li === 1) drawShark(t, dt);
       if (li === 2) {
         for (var bk = 0; bk < blacktips.length; bk++) drawBlacktip(blacktips[bk], t, dt);
-        for (var ry = 0; ry < rays.length; ry++) drawStingray(rays[ry], t, dt);
       }
       /* the wrasse works the crest, in front of the near coral */
       if (li === 3) {
