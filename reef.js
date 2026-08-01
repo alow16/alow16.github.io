@@ -315,6 +315,11 @@
     reefFish:   0.34
   };
   var TEMPO = 1.35;
+  /* The reef runs at a fraction of that rate — a slower, more watchable
+     scene. Travel and body motion both scale by it, because a fish that
+     covers ground 2.5x slower beats its tail 2.5x slower too; slow only the
+     travel and every animal thrashes its way to nowhere. */
+  var PACE = 1 / 2.5;
 
   var W = 0, H = 0, dpr = 1;
   /* pixels per metre at depth plane 1.0, calibrated off the whale shark */
@@ -325,7 +330,7 @@
 
   function sizeOf(m, plane) { return m * pxPerM * plane; }
   /* px per millisecond, matching how the roamers integrate travel */
-  function speedOf(mps, plane) { return mps * TEMPO * pxPerM * plane / 1000; }
+  function speedOf(mps, plane) { return mps * TEMPO * PACE * pxPerM * plane / 1000; }
 
   var waves = [];
   var colonies = [], mounds = [], forms = [], fish = [], bubbles = [], critters = [];
@@ -1885,8 +1890,8 @@
         if (f.x < -margin) f.x = W + margin;
       }
 
-      var wig = Math.sin(t * 0.011 + f.phase);
-      var y = f.y + (reduced ? 0 : Math.sin(t * 0.0013 + f.phase) * f.bob);
+      var wig = Math.sin(t * 0.011 * PACE + f.phase);
+      var y = f.y + (reduced ? 0 : Math.sin(t * 0.0013 * PACE + f.phase) * f.bob);
       var s = f.size;
 
       ctx.save();
@@ -1937,8 +1942,8 @@
 
     var L = shark.len;
     var x = shark.dir > 0 ? -L * 1.45 + shark.travelled : W + L * 1.45 - shark.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.00042 + shark.phase) * L * 0.035;
-    var beat = reduced ? 0 : Math.sin(t * 0.0011 + shark.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.00042 * PACE + shark.phase) * L * 0.035;
+    var beat = reduced ? 0 : Math.sin(t * 0.0011 * PACE + shark.phase);
     var y = shark.y + bob;
 
     var body = hex2rgb(pal.shark);
@@ -2184,8 +2189,8 @@
 
     var L = b.len;
     var x = b.dir > 0 ? -L * 1.3 + b.travelled : W + L * 1.3 - b.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.0007 + b.phase) * L * 0.03;
-    var beat = reduced ? 0 : Math.sin(t * 0.0030 + b.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0007 * PACE + b.phase) * L * 0.03;
+    var beat = reduced ? 0 : Math.sin(t * 0.0030 * PACE + b.phase);
     var sweep = beat * L * 0.055;
 
     var body = hex2rgb(pal.blacktip);
@@ -2367,11 +2372,11 @@
 
     var L = w.len;
     var x = w.dir > 0 ? -L * 1.1 + w.travelled : W + L * 1.1 - w.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.00055 + w.phase) * L * 0.035;
+    var bob = reduced ? 0 : Math.sin(t * 0.00055 * PACE + w.phase) * L * 0.035;
     /* wrasses row with their pectorals and only bring the tail in to
        accelerate, so the caudal beat is slow and the fin flap is not */
-    var beat = reduced ? 0 : Math.sin(t * 0.0016 + w.phase);
-    var flap = reduced ? 0 : Math.sin(t * 0.0042 + w.phase);
+    var beat = reduced ? 0 : Math.sin(t * 0.0016 * PACE + w.phase);
+    var flap = reduced ? 0 : Math.sin(t * 0.0042 * PACE + w.phase);
     var sw = beat * L * 0.05;
 
     var body = hex2rgb(pal.wrasse);
@@ -2587,8 +2592,8 @@
 
     var L = f.len;
     var x = f.dir > 0 ? -L * 1.2 + f.travelled : W + L * 1.2 - f.travelled;
-    var beat = reduced ? 0 : Math.sin(t * 0.0052 + f.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.0011 + f.phase) * f.bob;
+    var beat = reduced ? 0 : Math.sin(t * 0.0052 * PACE + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0011 * PACE + f.phase) * f.bob;
     var sw = beat * L * 0.055;
 
     var blue = hex2rgb(pal.tang);
@@ -2769,11 +2774,11 @@
 
     var L = f.len;
     var x = f.dir > 0 ? -L * 1.3 + f.travelled : W + L * 1.3 - f.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.00048 + f.phase) * L * 0.05;
+    var bob = reduced ? 0 : Math.sin(t * 0.00048 * PACE + f.phase) * L * 0.05;
     /* the whole animal breathes rather than beats — the fins ripple, the
        body barely moves */
-    var wob = reduced ? 0 : Math.sin(t * 0.0016 + f.phase) * 0.07;
-    var roll = reduced ? 0 : Math.sin(t * 0.0009 + f.phase) * 0.045;
+    var wob = reduced ? 0 : Math.sin(t * 0.0016 * PACE + f.phase) * 0.07;
+    var roll = reduced ? 0 : Math.sin(t * 0.0009 * PACE + f.phase) * 0.045;
 
     var maroon = hex2rgb(pal.lion);
     var palec = hex2rgb(pal.lionPale);
@@ -2939,8 +2944,8 @@
 
     var L = f.len;
     var x = f.dir > 0 ? -L * 1.6 + f.travelled : W + L * 1.6 - f.travelled;
-    var beat = reduced ? 0 : Math.sin(t * 0.0044 + f.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.0010 + f.phase) * f.bob;
+    var beat = reduced ? 0 : Math.sin(t * 0.0044 * PACE + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0010 * PACE + f.phase) * f.bob;
     var sw = beat * L * 0.05;
 
     var bar = hex2rgb(pal.idolBar);
@@ -2956,7 +2961,7 @@
        streams astern and lags behind the body's beat. It goes down first,
        behind everything, because the fin it grows from is behind the fish */
     var fx0 = L * 0.070, fy0 = -L * 0.340;
-    var lag = reduced ? 0 : Math.sin(t * 0.0030 + f.phase - 0.9);
+    var lag = reduced ? 0 : Math.sin(t * 0.0030 * PACE + f.phase - 0.9);
     var FN = 16, up = [], dn = [];
     for (var fi = 0; fi <= FN; fi++) {
       var u = fi / FN;
@@ -3162,9 +3167,9 @@
     var x = f.dir > 0 ? -L * 1.4 + f.travelled : W + L * 1.4 - f.travelled;
     /* a hovering fish, not a swimming one: the tail idles, the pectorals
        do the work, and the whole animal rocks a degree or two */
-    var beat = reduced ? 0 : Math.sin(t * 0.0026 + f.phase);
-    var scull = reduced ? 0 : Math.sin(t * 0.0068 + f.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.00075 + f.phase) * L * 0.035;
+    var beat = reduced ? 0 : Math.sin(t * 0.0026 * PACE + f.phase);
+    var scull = reduced ? 0 : Math.sin(t * 0.0068 * PACE + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.00075 * PACE + f.phase) * L * 0.035;
     var sw = beat * L * 0.045;
 
     var gold = hex2rgb(pal.sweet);
@@ -3309,10 +3314,10 @@
 
     var L = f.len;
     var x = f.dir > 0 ? -L * 1.3 + f.travelled : W + L * 1.3 - f.travelled;
-    var beat = reduced ? 0 : Math.sin(t * 0.0058 + f.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.0012 + f.phase) * f.bob;
+    var beat = reduced ? 0 : Math.sin(t * 0.0058 * PACE + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.0012 * PACE + f.phase) * f.bob;
     /* a grazer nods at the rock every few seconds and then levels off */
-    var graze = reduced ? 0 : Math.max(0, Math.sin(t * 0.00042 + f.phase * 1.7)) * 0.22;
+    var graze = reduced ? 0 : Math.max(0, Math.sin(t * 0.00042 * PACE + f.phase * 1.7)) * 0.22;
     var sw = beat * L * 0.05;
 
     var yel = hex2rgb(pal.ytang);
@@ -3468,9 +3473,9 @@
     var x = f.dir > 0 ? -L * 1.4 + f.travelled : W + L * 1.4 - f.travelled;
     /* it does not cruise: it sits, then shifts. The tail is mostly still
        and the pectorals do the holding */
-    var beat = reduced ? 0 : Math.sin(t * 0.0022 + f.phase);
-    var scull = reduced ? 0 : Math.sin(t * 0.0075 + f.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.00062 + f.phase) * L * 0.030;
+    var beat = reduced ? 0 : Math.sin(t * 0.0022 * PACE + f.phase);
+    var scull = reduced ? 0 : Math.sin(t * 0.0075 * PACE + f.phase);
+    var bob = reduced ? 0 : Math.sin(t * 0.00062 * PACE + f.phase) * L * 0.030;
     var sw = beat * L * 0.040;
 
     var red = hex2rgb(pal.grouper);
@@ -3773,7 +3778,7 @@
     var nx = dgNX[idx] * lf.side, ny = dgNY[idx] * lf.side;
     /* a ridge leaf stands on the outline; a flank leaf roots inside it */
     var root = lf.depth === 0 ? 0.9 : lf.depth < 0 ? 0.5 : 0.28;
-    var sway = reduced ? 0 : Math.sin(t * 0.0013 + lf.phase) * 0.20;
+    var sway = reduced ? 0 : Math.sin(t * 0.0013 * PACE + lf.phase) * 0.20;
     var ang = Math.atan2(ny, nx) - lf.side * (lf.lean + sway);
     var len = L * lf.len * (lf.depth === 0 ? 1 : lf.depth < 0 ? 0.86 : 0.94);
     var wide = len * lf.wide;
@@ -3847,13 +3852,13 @@
 
     var L = d.len;
     var x = d.dir > 0 ? -L * 1.5 + d.travelled : W + L * 1.5 - d.travelled;
-    var bob = reduced ? 0 : Math.sin(t * 0.00040 + d.phase) * L * 0.030;
-    var pitch = reduced ? 0 : Math.sin(t * 0.00031 + d.phase * 1.7) * 0.05;
-    var drift = reduced ? 0 : Math.sin(t * 0.00075 + d.phase) * 0.045;
+    var bob = reduced ? 0 : Math.sin(t * 0.00040 * PACE + d.phase) * L * 0.030;
+    var pitch = reduced ? 0 : Math.sin(t * 0.00031 * PACE + d.phase * 1.7) * 0.05;
+    var drift = reduced ? 0 : Math.sin(t * 0.00075 * PACE + d.phase) * 0.045;
     /* the fins beat an order of magnitude faster than the animal travels —
        they are the only part of a sea dragon that ever looks hurried */
-    var flutter = reduced ? 0 : Math.sin(t * 0.019 + d.phase);
-    var undul = reduced ? 0 : t * 0.012 + d.phase;
+    var flutter = reduced ? 0 : Math.sin(t * 0.019 * PACE + d.phase);
+    var undul = reduced ? 0 : t * 0.012 * PACE + d.phase;
 
     var body = hex2rgb(pal.dragon);
     var cream = hex2rgb(pal.cream);
