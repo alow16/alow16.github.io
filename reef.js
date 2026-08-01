@@ -13,11 +13,11 @@
  *   3. bright finger corals, kelp blades and mounds grow in up front,
  *      cream dots beading along them as they finish
  *   4. wildlife arrives: fish schools fade in and start swimming, bubbles
- *      trickle off the reef, a whale shark, blacktip reef sharks and
- *      stingrays cross the mid-water, a humphead wrasse patrols the reef
- *      crest, a lionfish and a shoal of regal blue tangs drift through the
- *      near foreground, a leafy sea dragon works the bed below them, and
- *      starfish, urchins, anemones and clams dot the floor
+ *      trickle off the reef, a whale shark and blacktip reef sharks cross
+ *      the mid-water, a humphead wrasse patrols the reef crest, lionfish
+ *      hang over the near coral, a shoal of regal blue tangs drifts through
+ *      the near foreground, a leafy sea dragon works the bed below them,
+ *      and starfish, urchins, anemones and clams dot the floor
  *
  * Every animal is sized from a real body length in metres against a depth
  * plane (see METRES / planes below), so the whale shark really is thirty
@@ -78,8 +78,6 @@
       /* leafy sea dragon: olive-gold body, weedy green appendages */
       dragon: '#c98f3a',
       dragonLeaf: '#8ea84a',
-      ray: '#9c7a52',
-      rayBelly: '#e6d9bd',
       urchin: '#3a2a52'
     },
     dark: {
@@ -108,8 +106,6 @@
       lionPale: '#d6c8b0',
       dragon: '#96682a',
       dragonLeaf: '#657a34',
-      ray: '#5e4930',
-      rayBelly: '#a99878',
       urchin: '#251a38'
     }
   };
@@ -185,6 +181,12 @@
     { scale: 3.40, veil: 0.00, floor: 1.220, silhouette: false, count: 0 }
   ];
 
+  /* The two big crest animals — the blacktip and the humphead wrasse — hold
+     one plane between LAYERS[2] and LAYERS[3], so a viewer comparing them
+     is comparing the animals and not their distances: 1.9 m of wrasse comes
+     out exactly 1.9/1.7 of the shark, the way it would in the water. */
+  var CREST_PLANE = 1.22;
+
   /* --------------------------------------------------------- scale model */
 
   /* Real body lengths, so the animals are in honest proportion to each
@@ -194,7 +196,6 @@
     whaleShark: 9.00,
     blacktip:   1.70,
     wrasse:     1.90,
-    stingray:   1.45,   /* disc width, not nose-to-tail */
     lionfish:   0.35,
     tang:       0.28,
     dragon:     0.24,
@@ -206,10 +207,12 @@
      moves and the reef sharks still overtake everything they pass. */
   var MPS = {
     whaleShark: 1.20,
-    blacktip:   0.80,
+    /* a patrolling blacktip cruises at about a third of a body length a
+       second — slow for a shark, and slower still now that the body it has
+       to move is the full 1.7 m */
+    blacktip:   0.55,
     wrasse:     0.42,
-    stingray:   0.50,
-    lionfish:   0.15,
+    lionfish:   0.07,
     tang:       0.30,
     dragon:     0.06,
     reefFish:   0.34
@@ -229,7 +232,7 @@
 
   var waves = [];
   var colonies = [], mounds = [], fish = [], bubbles = [], critters = [];
-  var shark = null, blacktips = [], rays = [], wrasses = [];
+  var shark = null, blacktips = [], wrasses = [];
   var lionfishes = [], tangs = [], dragons = [];
   var grain = null;
   var GROWN_AT = 0;
@@ -555,7 +558,7 @@
   function buildScene() {
     rnd = mulberry32(seed);
     colonies = []; mounds = []; fish = []; bubbles = []; waves = [];
-    critters = []; blacktips = []; rays = []; wrasses = [];
+    critters = []; blacktips = []; wrasses = [];
     lionfishes = []; tangs = []; dragons = [];
     GROWN_AT = 0;
 
@@ -692,14 +695,18 @@
 
     /* blacktip reef sharks: at 1.7 m they come out a fifth of the whale
        shark, which is the whole point — they patrol the crest in ones and
-       twos and are quick where the big animal is not */
-    var btPlane = LAYERS[2].scale;
+       twos and are quick where the big animal is not.
+
+       They work the near edge of the mid-water rather than the layer-2
+       plane, on CREST_PLANE with the wrasse — and short of LAYERS[3], so
+       they correctly pass behind the near coral. */
+    var btPlane = CREST_PLANE;
     var btCount = W > 700 ? 1 + ri(2) : 1;
     for (var bt = 0; bt < btCount; bt++) {
       var btLen = sizeOf(METRES.blacktip, btPlane) * rr(0.88, 1.12);
       blacktips.push({
         len: btLen,
-        y: H * rr(0.38, 0.58),
+        y: H * rr(0.42, 0.58),
         dir: rnd() < 0.5 ? -1 : 1,
         travel: W + btLen * 2.6,
         speed: speedOf(MPS.blacktip, btPlane) * rr(0.9, 1.15),
@@ -711,8 +718,12 @@
     }
 
     /* humphead wrasse: heavy and unhurried, close in over the near reef —
-       where a two-metre fish shaped like that actually spends its day */
-    var wrPlane = LAYERS[3].scale;
+       where a two-metre fish shaped like that actually spends its day. It
+       shares CREST_PLANE with the blacktip: it still swims lower and in
+       front of the layer-3 coral, but it is no longer sized a plane nearer
+       than the shark, which was quietly adding 7% to a fish that already
+       out-measures a blacktip. */
+    var wrPlane = CREST_PLANE;
     var wrCount = W > 900 && rnd() < 0.3 ? 2 : 1;
     for (var wr = 0; wr < wrCount; wr++) {
       var wrLen = sizeOf(METRES.wrasse, wrPlane) * rr(0.85, 1.1);
@@ -730,44 +741,30 @@
       });
     }
 
-    /* stingrays: hug the bed and glide across low, rather than cruising
-       the open water like the bigger animals above */
-    var rayPlane = 1.15;
-    var rCount = 1 + ri(2);
-    for (var ryI = 0; ryI < rCount; ryI++) {
-      /* the drawing spans 1.2L wingtip to wingtip, so back the disc out */
-      var raylen = sizeOf(METRES.stingray, rayPlane) / 1.2 * rr(0.85, 1.15);
-      rays.push({
-        len: raylen,
-        y: H * rr(0.72, 0.9),
-        dir: rnd() < 0.5 ? -1 : 1,
-        travel: W + raylen * 2.4,
-        speed: speedOf(MPS.stingray, rayPlane) * rr(0.9, 1.1),
-        travelled: rr(0, W),
-        rest: rr(0.22, 0.70),
-        t0: 2000 + ryI * 2600 + rr(0, 800),
-        phase: rr(0, TAU)
-      });
-    }
-
     /* ---- the foreground pane: small animals, close to the glass ---- */
 
     var fg = LAYERS[4].scale * nearBoost;
 
     /* lionfish: all fin and no hurry, so it stays in frame long enough to
-       be looked at properly */
-    var lfCount = W > 1100 && rnd() < 0.35 ? 2 : 1;
+       be looked at properly. It hangs low over the coral rather than out in
+       open water — which is where you actually find one, and it comes with
+       company, because that is the whole problem with lionfish: no local
+       predator, so they pile up over one head of coral. Four on screen is
+       the ceiling — past that the near plane is all quills. */
+    var lfCount = W > 1100 ? 3 + ri(2) : 2 + ri(2);
     for (var lf = 0; lf < lfCount; lf++) {
-      var lfLen = sizeOf(METRES.lionfish, fg) * rr(0.9, 1.1);
+      var lfLen = sizeOf(METRES.lionfish, fg) * rr(0.82, 1.18);
       lionfishes.push({
         len: lfLen,
-        y: H * rr(0.58, 0.82),
+        y: H * rr(0.78, 0.94),
         dir: rnd() < 0.5 ? -1 : 1,
         travel: W + lfLen * 2.6,
-        speed: speedOf(MPS.lionfish, fg) * rr(0.9, 1.1),
+        speed: speedOf(MPS.lionfish, fg) * rr(0.85, 1.15),
         travelled: rr(0, W),
-        rest: rr(0.26, 0.64),
-        t0: 3200 + lf * 5000 + rr(0, 1200),
+        rest: rr(0.12, 0.88),
+        /* tight stagger, so the last of them is in frame within seconds
+           rather than a third of a minute */
+        t0: 3200 + lf * 1100 + rr(0, 900),
         phase: rr(0, TAU)
       });
     }
@@ -797,11 +794,11 @@
       });
     }
 
-    /* leafy sea dragon: at 6 cm/s it is an order of magnitude slower than
-       anything else here, which is exactly right — it drifts rather than
-       swims, and the near plane is the only place its foliage reads. It
-       keeps to the bottom of the frame because that is where it lives: a
-       hand's breadth off the bed, working the weed for mysids. */
+    /* leafy sea dragon: at 6 cm/s it is the slowest thing in the scene, a
+       shade under even the lionfish, which is exactly right — it drifts
+       rather than swims, and the near plane is the only place its foliage
+       reads. It keeps to the bottom of the frame because that is where it
+       lives: a hand's breadth off the bed, working the weed for mysids. */
     var dgPlane = fg * 1.3;
     var dgLen = sizeOf(METRES.dragon, dgPlane) * rr(0.9, 1.1);
     dragons.push({
@@ -1243,7 +1240,7 @@
   function drawBlacktip(b, t, dt) {
     var fade = smooth((t - b.t0) / 1400);
     if (fade <= 0) return;
-    advance(b, dt, 0.38, 0.58, 0.34);
+    advance(b, dt, 0.42, 0.58, 0.34);
 
     var L = b.len;
     var x = b.dir > 0 ? -L * 1.3 + b.travelled : W + L * 1.3 - b.travelled;
@@ -1828,7 +1825,7 @@
   function drawLionfish(f, t, dt) {
     var fade = smooth((t - f.t0) / 1800);
     if (fade <= 0) return;
-    advance(f, dt, 0.58, 0.82, 0.42);
+    advance(f, dt, 0.80, 0.93, 0.42);
 
     var L = f.len;
     var x = f.dir > 0 ? -L * 1.3 + f.travelled : W + L * 1.3 - f.travelled;
@@ -2441,76 +2438,6 @@
     ctx.restore();
   }
 
-  /* ---------------------------------------------------------- stingray */
-
-  function drawStingray(r, t, dt) {
-    var fade = smooth((t - r.t0) / 1400);
-    if (fade <= 0) return;
-
-    advance(r, dt, 0.72, 0.9, 0.6);
-
-    var L = r.len;
-    var x = r.dir > 0 ? -L * 0.9 + r.travelled : W + L * 0.9 - r.travelled;
-    var glide = reduced ? 0 : Math.sin(t * 0.0016 + r.phase);
-    var bob = reduced ? 0 : Math.sin(t * 0.0009 + r.phase) * L * 0.05;
-    var y = r.y + bob;
-
-    var body = hex2rgb(pal.ray);
-    var belly = hex2rgb(pal.rayBelly);
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(r.dir, 1);
-    ctx.rotate(glide * 0.06);
-
-    /* whip tail, drawn first so the body's rear point covers its root */
-    ctx.strokeStyle = rgba(mix(body, [0, 0, 0], 0.1), 0.9 * fade);
-    ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(1, L * 0.02);
-    ctx.beginPath();
-    ctx.moveTo(-L * 0.28, 0);
-    ctx.quadraticCurveTo(-L * 0.55, glide * L * 0.06, -L * 0.85, glide * L * 0.14 - L * 0.02);
-    ctx.stroke();
-
-    /* the kite-shaped disc, wingtips rippling gently with `glide` */
-    ctx.fillStyle = rgba(body, fade);
-    ctx.beginPath();
-    ctx.moveTo(L * 0.5, 0);
-    ctx.quadraticCurveTo(L * 0.25, -L * 0.18 - glide * L * 0.03, -L * 0.05, -L * 0.60 - glide * L * 0.05);
-    ctx.quadraticCurveTo(-L * 0.26, -L * 0.34, -L * 0.32, -L * 0.08);
-    ctx.quadraticCurveTo(-L * 0.36, 0, -L * 0.32, L * 0.08);
-    ctx.quadraticCurveTo(-L * 0.26, L * 0.34, -L * 0.05, L * 0.60 + glide * L * 0.05);
-    ctx.quadraticCurveTo(L * 0.25, L * 0.18 + glide * L * 0.03, L * 0.5, 0);
-    ctx.closePath();
-    ctx.fill();
-
-    /* pale trailing edge along the wings */
-    ctx.save();
-    ctx.clip();
-    ctx.fillStyle = rgba(belly, 0.28 * fade);
-    ctx.beginPath();
-    ctx.moveTo(L * 0.3, -L * 0.42);
-    ctx.quadraticCurveTo(-L * 0.1, -L * 0.5, -L * 0.3, -L * 0.2);
-    ctx.lineTo(-L * 0.34, 0);
-    ctx.lineTo(-L * 0.3, L * 0.2);
-    ctx.quadraticCurveTo(-L * 0.1, L * 0.5, L * 0.3, L * 0.42);
-    ctx.lineTo(L * 0.2, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    /* eyes on top of the head */
-    ctx.fillStyle = rgba(mix(body, [0, 0, 0], 0.5), 0.85 * fade);
-    ctx.beginPath();
-    ctx.arc(L * 0.32, -L * 0.05, Math.max(1, L * 0.014), 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(L * 0.32, L * 0.05, Math.max(1, L * 0.014), 0, TAU);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
   /* -------------------------------------------------------- bed critters */
 
   function drawCritter(c, t) {
@@ -2710,7 +2637,6 @@
       if (li === 1) drawShark(t, dt);
       if (li === 2) {
         for (var bk = 0; bk < blacktips.length; bk++) drawBlacktip(blacktips[bk], t, dt);
-        for (var ry = 0; ry < rays.length; ry++) drawStingray(rays[ry], t, dt);
       }
       /* the wrasse works the crest, in front of the near coral */
       if (li === 3) {
