@@ -7,11 +7,18 @@
  * navy silhouettes layered behind saturated orange / green / purple
  * corals, cream dot detailing, and a watercolour-grained blue wash.
  *
+ * The reef is built from the growth forms a real one is: branching and
+ * digitate colonies, corymbose and tabular Acropora, columnar pillar coral,
+ * foliose whorls, massive mounds, sea fans and whips, kelp, and the
+ * free-living discs that lie loose on the sand. Each has its own skeleton,
+ * its own way of unfurling, and its own share of the mix per depth (see
+ * KINDS, buildForm and MIX).
+ *
  * Order of events:
  *   1. the water wash and light shafts settle
- *   2. navy kelp and coral silhouettes rise in the deep layers
- *   3. bright finger corals, kelp blades and mounds grow in up front,
- *      cream dots beading along them as they finish
+ *   2. navy kelp, tables and coral silhouettes rise in the deep layers
+ *   3. bright finger corals, plates, columns, kelp blades and mounds grow in
+ *      up front, cream dots beading along them as they finish
  *   4. wildlife arrives: fish schools fade in and start swimming, bubbles
  *      trickle off the reef, a whale shark and blacktip reef sharks cross
  *      the mid-water, a humphead wrasse patrols the reef crest, lionfish
@@ -52,6 +59,10 @@
       green: ['#5fbe45', '#7fd05a', '#43a838', '#9ad769'],
       purple: ['#7b4bc4', '#9b5fd0', '#5c3aa8', '#b06fd8'],
       magenta: ['#d94fa0', '#e56bb0'],
+      /* the two hues the plate corals brought with them: Turbinaria's
+         mustard, and the blue-green of a table Acropora in clear water */
+      teal: ['#1f9d94', '#2ab5a6', '#177f7c'],
+      gold: ['#e0a52a', '#eabb47', '#c78d1d'],
       cream: '#f5f0e6',
       fish: ['#8b5fd0', '#d94fa0', '#f2cb3f', '#3fa9d8'],
       /* darker than the water and greener than the cobalt kelp behind it,
@@ -88,6 +99,8 @@
       green: ['#3f9a30', '#57ad3f', '#2c8226', '#6fb84a'],
       purple: ['#5f379b', '#7a48ab', '#452880', '#8b52b4'],
       magenta: ['#ad3b7f', '#bc4f8f'],
+      teal: ['#146f69', '#1b8a7e', '#0e5a57'],
+      gold: ['#ad7c1c', '#bd9130', '#946611'],
       cream: '#ece5d6',
       fish: ['#7048ad', '#ad3b7f', '#c9a833', '#2f86ad'],
       shark: '#0d2a3a',
@@ -111,6 +124,35 @@
   };
 
   var pal;
+
+  /* A reef is one place, not a paint chart. At this density every hue family
+     in the palette would be on screen a dozen times over and the whole thing
+     would read as confetti, so each build keeps four families and folds the
+     other two onto the ones it kept. Green always survives — the kelp needs
+     it — and the fish and the big animals are exempt, which is what lets
+     them stay legible against whatever the coral settled on.
+
+     The four are chosen by temperature rather than drawn freely: green, one
+     of the two warms, and two of the three cools. Drawn freely, a build can
+     come up green-orange-gold and read as a single hue. A dropped family
+     also folds onto its own temperature, so a coral the palette meant to be
+     warm stays warm. */
+  var famMap = {};
+  var WARM = ['orange', 'gold'];
+  var COOL = ['purple', 'magenta', 'teal'];
+
+  function pickFamilies() {
+    var keepWarm = WARM[ri(2)];
+    var a = ri(3), b = (a + 1 + ri(2)) % 3;   /* two distinct cools */
+    famMap = { green: 'green' };
+    for (var w = 0; w < WARM.length; w++) famMap[WARM[w]] = keepWarm;
+    for (var k = 0; k < COOL.length; k++) {
+      famMap[COOL[k]] = k === a || k === b ? COOL[k]
+        : rnd() < 0.5 ? COOL[a] : COOL[b];
+    }
+  }
+
+  function fam(name) { return pal[famMap[name] || name]; }
 
   function readTheme() {
     pal = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -172,12 +214,18 @@
      values over 1 root the biggest shapes just below the fold. Layers 0-1
      are drawn as deep silhouettes, 2-3 in full colour. Layer 4 grows
      nothing — it is the pane of water between the reef and the viewer,
-     where the small, ornate animals drift close enough to be read. */
+     where the small, ornate animals drift close enough to be read.
+
+     `count` is deliberately high: on a healthy reef the colonies grow into
+     each other and there is no bare bed between them, so the slots have to
+     overlap rather than tile. The beds are also spread further apart than
+     they need to be for depth alone, which is what turns four crowded rows
+     into one massif with a crest instead of four visible bands. */
   var LAYERS = [
-    { scale: 0.46, veil: 0.20, floor: 0.885, silhouette: true,  count: 15 },
-    { scale: 0.68, veil: 0.11, floor: 0.935, silhouette: true,  count: 11 },
-    { scale: 0.95, veil: 0.04, floor: 0.995, silhouette: false, count: 9 },
-    { scale: 1.30, veil: 0.00, floor: 1.045, silhouette: false, count: 6 },
+    { scale: 0.52, veil: 0.20, floor: 0.780, silhouette: true,  count: 25 },
+    { scale: 0.68, veil: 0.11, floor: 0.865, silhouette: true,  count: 20 },
+    { scale: 0.95, veil: 0.04, floor: 0.955, silhouette: false, count: 18 },
+    { scale: 1.30, veil: 0.00, floor: 1.045, silhouette: false, count: 10 },
     { scale: 3.40, veil: 0.00, floor: 1.220, silhouette: false, count: 0 }
   ];
 
@@ -231,11 +279,43 @@
   function speedOf(mps, plane) { return mps * TEMPO * pxPerM * plane / 1000; }
 
   var waves = [];
-  var colonies = [], mounds = [], fish = [], bubbles = [], critters = [];
+  var colonies = [], mounds = [], forms = [], fish = [], bubbles = [], critters = [];
   var shark = null, blacktips = [], wrasses = [];
   var lionfishes = [], tangs = [], dragons = [];
   var grain = null;
   var GROWN_AT = 0;
+
+  /* How high the reef is allowed to build. The prose is laid out by CSS and
+     its depth swings hard with the viewport — three paragraphs that take a
+     third of a desktop window take two thirds of a phone — so ask the page
+     where it ends rather than guessing at a fraction of the height. Every
+     colony is then fitted under this line, and nothing grows into the text
+     at any size. */
+  var ceilingY = 0;
+
+  function readCeiling() {
+    var el = document.querySelector('.prose') || document.querySelector('.content');
+    var y = el
+      /* plus a band of quiet water, so the crest sits clear of the last line
+         rather than crowding up against it */
+      ? el.getBoundingClientRect().bottom + (window.scrollY || 0) + H * 0.09
+      : H * 0.42;
+    /* however long the page runs, the reef keeps somewhere to stand */
+    return Math.min(H * 0.88, Math.max(H * 0.28, y));
+  }
+
+  /* What a finished colony actually reaches above its base, walking the node
+     chain the same way the draw does. */
+  function colonyRise(nodes) {
+    var y = new Float32Array(nodes.length);
+    var top = 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      y[i] = (n.p < 0 ? 0 : y[n.p]) + Math.sin(n.abs) * n.len;
+      if (y[i] < top) top = y[i];
+    }
+    return -top;
+  }
 
   /* The bed is a rolling contour, so the layers don't stack up as bands. */
   function floorAt(li, x) {
@@ -245,20 +325,40 @@
 
   /* ------------------------------------------------- growth vocabulary */
 
-  /* Every shape is a chain or fan of round-capped segments. Keeping the
+  /* Every shape here is a chain or fan of round-capped segments. Keeping the
      width nearly constant along a chain is what gives the flat, blunt
-     cut-paper look instead of a tapering twig. */
+     cut-paper look instead of a tapering twig.
+
+     Most kinds are described declaratively — how many levels, how many kids
+     per level, how far they splay — and grown by the recursive rule in
+     buildColony. The two that a recursive rule can't say anything true about
+     (a corymb finishes at one height however far its branches ran; a stand of
+     columns is not a tree at all) carry a `layout` that lays their skeleton
+     out by hand instead. Either way the result is one node list, so they all
+     grow in and sway through the same code.
+
+     Three more growth forms — tabular, foliose and free-living — aren't
+     segment chains under any description, and are built as filled outlines
+     further down (see buildForm). */
+  /* A note on sizes, since they only work as a set. Every stemLen below is a
+     fraction of canvas height, and a colony's finished height is roughly that
+     times its level count. They are tuned into three storeys — kelp and whips
+     emergent at around a quarter of the frame, the branching and columnar
+     colonies at a sixth, the plates and corymbose heads at a twelfth — so a
+     dense planting reads as a reef with a crest rather than as a few towers
+     standing over a flat carpet. Change one and the storey it belongs to
+     stops meaning anything. */
   var KINDS = {
     /* tall kelp blade */
     kelp: {
-      levels: function (l) { return 6 + ri(6); },
+      levels: function (l) { return 5 + ri(5); },
       kids: function () { return 1; },
       spread: 0,
       lenRatio: function () { return rr(0.94, 1.02); },
       widthRatio: 0.985,
       upBias: 0.07,
       curvy: true,
-      stemLen: 0.048,
+      stemLen: 0.044,
       stemWidth: 0.55,
       tall: true,
       sway: 0.013
@@ -272,25 +372,25 @@
       widthRatio: 0.99,
       fingerWidth: 0.44,
       upBias: 0.24,
-      stemLen: 0.045,
+      stemLen: 0.052,
       stemWidth: 0.72,
       sway: 0.005
     },
     /* chunky branching coral */
     branch: {
-      levels: function () { return 3 + ri(2); },
+      levels: function () { return 3 + ri(3); },
       kids: function (d) { return d === 1 ? 3 : rnd() < 0.4 ? 3 : 2; },
       spread: function (d) { return (0.85 - d * 0.06) * rr(0.85, 1.25); },
       lenRatio: function (d) { return d === 1 ? rr(0.78, 0.95) : rr(0.66, 0.82); },
       widthRatio: 0.88,
       upBias: 0.36,
-      stemLen: 0.055,
+      stemLen: 0.062,
       stemWidth: 0.34,
       sway: 0.005
     },
     /* thin sea whip, beaded with cream dots */
     whip: {
-      levels: function () { return 7 + ri(5); },
+      levels: function () { return 6 + ri(4); },
       kids: function (d) { return d === 1 && rnd() < 0.5 ? 2 : 1; },
       spread: 0.5,
       lenRatio: function () { return rr(0.95, 1.0); },
@@ -300,19 +400,153 @@
       stemLen: 0.036,
       stemWidth: 0.16,
       tall: true,
-      sway: 0.017
+      sway: 0.017,
+      /* a whip earns its keep from the beading — it always gets dots, all
+         the way down, or it reads as a stray wire */
+      beadChance: 1,
+      beadFrom: function () { return 1; },
+      beadPer: 2
     },
     /* sea fan: a short stem exploding into a wide lattice of ribs */
     fan: {
       levels: function () { return 1 + ri(2); },
       kids: function (d) { return d === 1 ? 7 + ri(4) : 1; },
       spread: function (d) { return d === 1 ? 1.3 : 0.06; },
-      lenRatio: function (d) { return d === 1 ? rr(3.2, 4.6) : rr(0.7, 0.85); },
+      lenRatio: function (d) { return d === 1 ? rr(3.4, 4.8) : rr(0.7, 0.85); },
       widthRatio: 0.55,
       upBias: 0.14,
-      stemLen: 0.02,
+      stemLen: 0.024,
       stemWidth: 0.6,
       sway: 0.02
+    },
+    /* corymbose Acropora — the low, dense plate of blunt fingers you swim
+       over on a reef flat. The defining trick isn't the branching, it's that
+       every branchlet stops at the same ceiling however far out its parent
+       ran, so a colony that spreads sideways still finishes level on top. */
+    corymbose: {
+      stemLen: 0.034,
+      stemWidth: 1.15,
+      sway: 0.004,
+      beadChance: 0.8,
+      /* pale axial corallites — the growing tip of an Acropora branchlet is
+         a shade lighter than the rest of it, and only at the tip */
+      beadFrom: function (levels) { return levels; },
+      beadPer: 1,
+      beadU: function () { return 0.92; },
+      layout: function (nodes, unit) {
+        var root = nodes[0];
+        var half = unit * rr(2.3, 3.6);
+        var crown = unit * rr(1.4, 2.3);
+        var ribs = 4 + ri(4);
+
+        for (var i = 0; i < ribs; i++) {
+          var u = (ribs === 1 ? 0 : (i / (ribs - 1)) * 2 - 1) + rr(-0.05, 0.05);
+          var out = u < 0 ? -1 : 1;
+          /* the outer ribs lie almost flat and travel furthest; the middle
+             of the colony barely leans at all */
+          var abs = UP + u * rr(0.95, 1.30);
+          var reach = half * (0.26 + Math.abs(u) * rr(0.74, 1.02));
+          var segs = 2 + ri(2);
+          var ribW = root.w * rr(0.30, 0.42);
+
+          /* walk the rib out from the top of the base stub, hanging
+             branchlets at every joint on the way */
+          var px = Math.cos(root.abs) * root.len;
+          var py = Math.sin(root.abs) * root.len;
+          var parent = 0;
+
+          for (var s = 0; s < segs; s++) {
+            /* a branch sags a little further out as it goes, the way one
+               does once it is carrying its own weight */
+            abs += out * rr(0.02, 0.15);
+            var slen = reach / segs;
+            var seg = {
+              p: parent,
+              a: abs - nodes[parent].abs,
+              abs: abs,
+              len: slen,
+              w: Math.max(1.1, ribW * (1 - s * 0.08)),
+              d: 1,
+              t0: nodes[parent].t1 - 40 + rr(0, 60),
+              phase: rr(0, TAU)
+            };
+            seg.t1 = seg.t0 + 260;
+            parent = nodes.push(seg) - 1;
+            px += Math.cos(abs) * slen;
+            py += Math.sin(abs) * slen;
+
+            /* one branchlet per joint, two or three crowding the far end */
+            var kids = s === segs - 1 ? 1 + ri(2) : rnd() < 0.72 ? 1 : 0;
+            for (var k = 0; k < kids; k++) {
+              var spot = px + rr(-0.1, 0.1) * unit;
+              /* the ceiling domes very slightly toward the middle, and each
+                 branchlet stops a little short of it in its own way — level
+                 to the millimetre is a hedge, not a coral */
+              var ceil = -crown * (1 - 0.26 * Math.min(1, (spot / half) * (spot / half))) * rr(0.80, 1.02);
+              var rise = Math.max(unit * 0.34, py - ceil);
+              var bAbs = UP + rr(-0.16, 0.16) + out * 0.10 * (k - (kids - 1) / 2);
+              var br = {
+                p: parent,
+                a: bAbs - abs,
+                abs: bAbs,
+                len: rise,
+                w: Math.max(1, ribW * rr(0.56, 0.82)),
+                d: 2,
+                t0: seg.t1 - 30 + rr(0, 90),
+                phase: rr(0, TAU)
+              };
+              br.t1 = br.t0 + 240;
+              nodes.push(br);
+            }
+          }
+        }
+        return 2;
+      }
+    },
+    /* columnar: pillar coral and the thick Porites stands — a handful of
+       blunt columns off one encrusting base, each leaning its own way and
+       then straightening as it climbs toward the light */
+    columnar: {
+      stemLen: 0.036,
+      stemWidth: 1.0,
+      sway: 0.0025,
+      beadChance: 0.4,
+      beadFrom: function () { return 1; },
+      beadPer: 2,
+      layout: function (nodes, unit) {
+        var root = nodes[0];
+        var cols = 2 + ri(4);
+        var splay = rr(0.42, 0.92);
+
+        for (var i = 0; i < cols; i++) {
+          var u = (cols === 1 ? 0 : (i / (cols - 1)) * 2 - 1) + rr(-0.12, 0.12);
+          var abs = UP + u * splay;
+          var segs = 3 + ri(3);
+          var segLen = unit * rr(0.85, 1.5);
+          var w = root.w * rr(0.50, 0.78);
+          var parent = 0;
+
+          for (var s = 0; s < segs; s++) {
+            /* pull hard back to vertical after the first segment: the lean
+               is set at the base, and the column stands up out of it */
+            if (s > 0) abs += (UP - abs) * 0.55 + rr(-0.07, 0.07);
+            var node = {
+              p: parent,
+              a: abs - nodes[parent].abs,
+              abs: abs,
+              len: segLen * (1 - s * 0.05),
+              /* barely any taper — a column that narrows reads as a twig */
+              w: Math.max(1.4, w * (1 - s * 0.06)),
+              d: s === 0 ? 1 : 2,
+              t0: nodes[parent].t1 - 50 + rr(0, 70),
+              phase: rr(0, TAU)
+            };
+            node.t1 = node.t0 + 300 * Math.pow(0.94, s);
+            parent = nodes.push(node) - 1;
+          }
+        }
+        return 2;
+      }
     }
   };
 
@@ -320,11 +554,13 @@
     var K = KINDS[kindName];
     var nodes = [];
     var dots = [];
-    var levels = K.levels(layer);
+    var levels = 0;
     /* tall shapes compress less between layers, so the deep kelp still
        reaches up the way it does on the cover */
     var hScale = K.tall ? Math.pow(layer.scale, 0.6) : layer.scale;
-    var stem = H * K.stemLen * hScale * rr(0.8, 1.35);
+    /* a wide spread, because a crowded row of same-sized colonies reads as
+       a picket fence — the lumpiness of the crest comes from here */
+    var stem = H * K.stemLen * hScale * rr(0.62, 1.45);
     var curve = K.curvy ? rr(-0.14, 0.14) : 0;
 
     nodes.push({
@@ -340,55 +576,76 @@
     });
     nodes[0].abs = nodes[0].a;
 
-    var frontier = [0];
-    for (var d = 1; d <= levels; d++) {
-      var next = [];
-      for (var f = 0; f < frontier.length; f++) {
-        var pi = frontier[f];
-        var parent = nodes[pi];
-        var kids = K.kids(d);
-        var spread = typeof K.spread === 'function' ? K.spread(d) : K.spread;
+    if (K.layout) {
+      levels = K.layout(nodes, stem, layer);
+    } else {
+      levels = K.levels(layer);
+      var frontier = [0];
+      for (var d = 1; d <= levels; d++) {
+        var next = [];
+        for (var f = 0; f < frontier.length; f++) {
+          var pi = frontier[f];
+          var parent = nodes[pi];
+          var kids = K.kids(d);
+          var spread = typeof K.spread === 'function' ? K.spread(d) : K.spread;
 
-        for (var k = 0; k < kids; k++) {
-          var frac = kids === 1 ? 0 : k / (kids - 1) - 0.5;
-          var ang = frac * spread * 2 + curve + rr(-0.1, 0.1);
+          for (var k = 0; k < kids; k++) {
+            var frac = kids === 1 ? 0 : k / (kids - 1) - 0.5;
+            var ang = frac * spread * 2 + curve + rr(-0.1, 0.1);
 
-          /* coral grows toward the light: bend every segment back to vertical */
-          var abs = parent.abs + ang;
-          abs = abs + (UP - abs) * K.upBias;
+            /* coral grows toward the light: bend every segment back to vertical */
+            var abs = parent.abs + ang;
+            abs = abs + (UP - abs) * K.upBias;
 
-          var wr = kindName === 'hand' && d === 1 ? K.fingerWidth : K.widthRatio;
-          var dur = 300 * Math.pow(0.9, d);
-          var t0 = parent.t1 - 45 + rr(0, 70);
-          var node = {
-            p: pi,
-            a: abs - parent.abs,
-            abs: abs,
-            len: parent.len * K.lenRatio(d),
-            w: Math.max(1, parent.w * wr),
-            d: d,
-            t0: t0,
-            t1: t0 + dur,
-            phase: rr(0, TAU)
-          };
-          var idx = nodes.push(node) - 1;
-          if (d < levels) next.push(idx);
+            var wr = kindName === 'hand' && d === 1 ? K.fingerWidth : K.widthRatio;
+            var dur = 300 * Math.pow(0.9, d);
+            var t0 = parent.t1 - 45 + rr(0, 70);
+            var node = {
+              p: pi,
+              a: abs - parent.abs,
+              abs: abs,
+              len: parent.len * K.lenRatio(d),
+              w: Math.max(1, parent.w * wr),
+              d: d,
+              t0: t0,
+              t1: t0 + dur,
+              phase: rr(0, TAU)
+            };
+            var idx = nodes.push(node) - 1;
+            if (d < levels) next.push(idx);
+          }
         }
+        frontier = next;
       }
-      frontier = next;
     }
 
-    /* cream dot detailing, the cover's sucker-and-bead motif */
-    var beaded = !layer.silhouette && (kindName === 'whip' || rnd() < 0.5);
+    /* fit the colony under the text: measure what it really reaches and, if
+       it would overrun, shrink the whole thing uniformly. Scaling lengths
+       alone would leave a squat, fat version of a tall shape. */
+    var rise = colonyRise(nodes);
+    var headroom = floorY - ceilingY;
+    if (rise > headroom && headroom > 0) {
+      var fit = headroom / rise;
+      for (var z = 0; z < nodes.length; z++) {
+        nodes[z].len *= fit;
+        nodes[z].w = Math.max(1, nodes[z].w * fit);
+      }
+    }
+
+    /* cream dot detailing, the cover's sucker-and-bead motif. Where it lands
+       is the kind's business: beads all down a whip, a single pale corallite
+       on the tip of an Acropora branchlet, nothing at all in the deep
+       silhouette layers, where it would just be noise. */
+    var beaded = !layer.silhouette && rnd() < (K.beadChance === undefined ? 0.38 : K.beadChance);
     if (beaded) {
-      var from = kindName === 'whip' ? 1 : Math.max(1, levels - 2);
+      var from = K.beadFrom ? K.beadFrom(levels) : Math.max(1, levels - 2);
+      var per = K.beadPer || 3;
       for (var n = 1; n < nodes.length; n++) {
         if (nodes[n].d < from) continue;
-        var per = kindName === 'whip' ? 2 : 3;
         for (var q = 0; q < per; q++) {
           dots.push({
             n: n,
-            u: (q + 0.5) / per,
+            u: K.beadU ? K.beadU(q, per) : (q + 0.5) / per,
             r: Math.max(0.8, nodes[n].w * rr(0.16, 0.26)),
             t0: nodes[n].t1 + rr(60, 320)
           });
@@ -406,15 +663,23 @@
     if (layer.silhouette) {
       tone = pick(pal.deep);
     } else if (kindName === 'kelp') {
-      tone = rnd() < 0.75 ? pick(pal.green) : pick(pal.purple);
+      tone = rnd() < 0.75 ? pick(fam('green')) : pick(fam('purple'));
     } else if (kindName === 'whip') {
-      tone = rnd() < 0.5 ? pick(pal.magenta) : pick(pal.purple);
+      tone = rnd() < 0.5 ? pick(fam('magenta')) : pick(fam('purple'));
     } else if (kindName === 'hand') {
-      tone = pick(rnd() < 0.45 ? pal.green : rnd() < 0.6 ? pal.purple : pal.orange);
+      tone = pick(rnd() < 0.45 ? fam('green') : rnd() < 0.6 ? fam('purple') : fam('orange'));
     } else if (kindName === 'fan') {
-      tone = pick(rnd() < 0.5 ? pal.magenta : pal.purple);
+      tone = pick(rnd() < 0.5 ? fam('magenta') : fam('purple'));
+    } else if (kindName === 'corymbose') {
+      /* the Acropora blues and greens, with the odd gold or purple colony
+         so a bank of them doesn't come out as clones */
+      tone = pick(rnd() < 0.38 ? fam('teal') : rnd() < 0.55 ? fam('green')
+        : rnd() < 0.6 ? fam('gold') : fam('purple'));
+    } else if (kindName === 'columnar') {
+      /* pillar and Porites stands are sandy gold more often than not */
+      tone = pick(rnd() < 0.55 ? fam('gold') : rnd() < 0.6 ? fam('orange') : fam('teal'));
     } else {
-      tone = pick(rnd() < 0.6 ? pal.orange : pal.purple);
+      tone = pick(rnd() < 0.6 ? fam('orange') : fam('purple'));
     }
 
     return {
@@ -435,15 +700,169 @@
     };
   }
 
+  /* --------------------------------------------- plates, whorls, discs */
+
+  /* Three growth forms that no chain of round-capped segments can tell the
+     truth about, so they are built as filled outlines and unfurl rather than
+     growing tip-first:
+
+       tabular    — Acropora hyacinthus, one stout trunk holding a table out
+                    flat to the light, rim finely ragged, top studded with
+                    short upright branchlets
+       foliose    — Turbinaria and Montipora foliosa: whorls of thin plate
+                    stacked and ruffled like cabbage leaves, each shelf
+                    shading the one below
+       freeLiving — Fungia, Cycloseris, Heliofungia: solitary corals that
+                    never cement themselves down, so these are the only
+                    corals in the scene that lie tilted
+
+     They share buildForm/drawForm and the layer plumbing the mounds use, so
+     they take their turn in the reef's growth order like everything else. */
+  function buildForm(kindName, cx, floorY, layer, li, startT) {
+    var s = layer.scale;
+    var f = {
+      kind: kindName,
+      x: cx,
+      y: floorY,
+      li: li,
+      t0: startT,
+      phase: rr(0, TAU),
+      plain: layer.silhouette
+    };
+
+    if (kindName === 'tabular') {
+      f.rx = H * 0.078 * s * rr(0.75, 1.4);
+      f.ry = f.rx * rr(0.11, 0.17);
+      /* a table on the slope stands on a real trunk — which is also what
+         lifts it clear of the sand line and up into the water column, where
+         its flat silhouette is the most legible shape on the reef */
+      f.stalk = f.rx * rr(0.85, 1.55);
+      f.tilt = rr(-0.10, 0.10);
+      /* the rim of a table is never a clean edge — it is a few hundred
+         branch tips that all stopped growing outward at slightly different
+         times. The wobble goes almost entirely into the thickness, since
+         that is the dimension the eye reads a nearly edge-on plate by. */
+      f.rimX = [];
+      f.rimY = [];
+      var rimN = 34;
+      for (var i = 0; i < rimN; i++) {
+        f.rimX.push(rr(0.975, 1.02));
+        f.rimY.push(rr(0.78, 1.14));
+      }
+      /* the short upright branchlets that stud a table's upper surface. `v`
+         is how far back across that surface each one roots — without it they
+         all line up along the far rim like candles on a cake. */
+      f.nubs = [];
+      var nubN = layer.silhouette ? 5 + ri(5) : 9 + ri(8);
+      for (var n = 0; n < nubN; n++) {
+        f.nubs.push({
+          u: rr(-0.9, 0.9),
+          v: rr(0.1, 1),
+          h: rr(0.06, 0.17),
+          w: rr(0.03, 0.055),
+          lean: rr(-0.5, 0.5)
+        });
+      }
+      /* back to front, so a near branchlet crosses in front of a far one */
+      f.nubs.sort(function (a, b) { return b.v - a.v; });
+      f.paleTips = !layer.silhouette && rnd() < 0.6;
+      f.tone = hex2rgb(layer.silhouette ? pick(pal.deep)
+        : pick(rnd() < 0.45 ? fam('teal') : rnd() < 0.6 ? fam('orange') : fam('purple')));
+      GROWN_AT = Math.max(GROWN_AT, startT + 1800);
+
+    } else if (kindName === 'foliose') {
+      var span = H * 0.060 * s * rr(0.8, 1.5);
+      var count = 4 + ri(4);
+      f.shelves = [];
+      var lift = 0;
+      for (var sh = 0; sh < count; sh++) {
+        /* each whorl grows out of the lip of the one below, so it starts
+           narrower and a little off to one side. The jitter matters: taper
+           the widths cleanly and the colony comes out a Christmas tree, when
+           a real one has the odd upper whorl overreaching the one beneath. */
+        var k = (1 - (sh / count) * rr(0.42, 0.64)) * rr(0.84, 1.16);
+        var seg = {
+          w: span * k,
+          h: span * rr(0.15, 0.24) * k,
+          y: -lift,
+          /* the whorls step alternately either side of the stalk, so the
+             stack zigzags up it instead of sitting concentric */
+          dx: (sh % 2 === 0 ? -1 : 1) * rr(0.06, 0.22) * span * k,
+          lean: rr(-0.20, 0.20),
+          lobes: 2 + ri(3),
+          ripple: rr(0.10, 0.30),
+          phase: rr(0, TAU),
+          t0: startT + sh * rr(190, 340)
+        };
+        f.shelves.push(seg);
+        /* the whorls climb as well as widen — a Turbinaria colony builds a
+           tower of shelves — but they have to overlap as they go, or the
+           stack reads as a pile of loose saucers */
+        lift += span * rr(0.20, 0.34) * k;
+        GROWN_AT = Math.max(GROWN_AT, seg.t0 + 1100);
+      }
+      /* the encrusting stalk every whorl grows off, which is the other half
+         of not reading as loose saucers. It stops at the topmost whorl —
+         run it to the full height of the stack and it pokes out the top. */
+      f.trunk = -f.shelves[f.shelves.length - 1].y;
+      f.trunkW = span * rr(0.20, 0.30);
+      f.trunkLean = rr(-0.1, 0.1);
+      f.beaded = !layer.silhouette && rnd() < 0.45;
+      f.tone = hex2rgb(layer.silhouette ? pick(pal.deep)
+        : pick(rnd() < 0.4 ? fam('gold') : rnd() < 0.6 ? fam('teal') : rnd() < 0.6 ? fam('green') : fam('magenta')));
+
+    } else {
+      f.r = H * 0.022 * s * rr(0.7, 1.55);
+      /* however it happened to settle */
+      f.tilt = rr(-0.34, 0.34);
+      f.septa = 13 + ri(13);
+      /* Heliofungia is the one that wears its tentacles out all day; the
+         rest of the family keeps them in and reads as a ribbed disc */
+      f.tent = !layer.silhouette && rnd() < 0.42 ? 11 + ri(10) : 0;
+      f.wob = [];
+      for (var w = 0; w < f.tent; w++) f.wob.push(rr(0, 1));
+      f.tone = hex2rgb(layer.silhouette ? pick(pal.deep)
+        : pick(rnd() < 0.35 ? fam('magenta') : rnd() < 0.5 ? fam('orange')
+            : rnd() < 0.6 ? fam('gold') : fam('green')));
+      GROWN_AT = Math.max(GROWN_AT, startT + 900);
+    }
+
+    /* the same fit under the text the colonies get. A free-living disc lies
+       flat on the bed and could never reach it. */
+    var headroom = floorY - ceilingY;
+    var rise = kindName === 'tabular' ? f.stalk + f.ry * 1.14 + f.rx * 0.17
+      : kindName === 'foliose' ? f.trunk + f.shelves[f.shelves.length - 1].h
+      : 0;
+    if (rise > headroom && headroom > 0) {
+      var fit = headroom / rise;
+      if (kindName === 'tabular') {
+        f.rx *= fit;
+        f.ry *= fit;
+        f.stalk *= fit;
+      } else {
+        f.trunk *= fit;
+        f.trunkW *= fit;
+        for (var sc = 0; sc < f.shelves.length; sc++) {
+          f.shelves[sc].w *= fit;
+          f.shelves[sc].h *= fit;
+          f.shelves[sc].y *= fit;
+          f.shelves[sc].dx *= fit;
+        }
+      }
+    }
+
+    return f;
+  }
+
   /* small bed life: starfish, urchins, anemones, clams. Cheap, mostly
      static shapes scattered along the floor between the coral. */
   function buildCritter(cx, floorY, li, layer, startT) {
     var kind = rnd() < 0.30 ? 'star' : rnd() < 0.58 ? 'urchin' : rnd() < 0.80 ? 'anemone' : 'clam';
     var r = H * 0.013 * layer.scale * rr(0.65, 1.3);
     var tone = kind === 'urchin' ? pal.urchin
-      : kind === 'anemone' ? pick(rnd() < 0.5 ? pal.magenta : pal.purple)
-      : kind === 'clam' ? pick(rnd() < 0.5 ? pal.orange : pal.purple)
-      : pick(rnd() < 0.5 ? pal.orange : pal.magenta);
+      : kind === 'anemone' ? pick(rnd() < 0.5 ? fam('magenta') : fam('purple'))
+      : kind === 'clam' ? pick(rnd() < 0.5 ? fam('orange') : fam('purple'))
+      : pick(rnd() < 0.5 ? fam('orange') : fam('magenta'));
 
     GROWN_AT = Math.max(GROWN_AT, startT + 600);
 
@@ -555,13 +974,71 @@
 
   /* ----------------------------------------------------------- builder */
 
+  /* What grows where, as weights rather than a ladder of magic thresholds.
+     The deep silhouette layers lean on the forms that survive being reduced
+     to an outline — tables, columns, whorls, kelp — while the near layers
+     carry the fussier ones, whose beading and ridges only land up close.
+     Whips are absent from the deep mix on purpose: with no cream beading
+     they'd read as stray wires.
+
+     The weights are also what keeps a crowded reef looking like a reef. The
+     emergent kinds — kelp and whips — are held to about a tenth between them,
+     because they are tall and thin and read as a hedge the moment there are
+     many of them. The mass belongs to the reef-builders: branching, digitate,
+     corymbose, tabular, foliose, columnar, massive. */
+  var MIX = {
+    deep: ['kelp', 9, 'hand', 12, 'branch', 14, 'fan', 5,
+           'corymbose', 12, 'columnar', 12, 'tabular', 14, 'foliose', 10,
+           'mound', 8],
+    near: ['kelp', 6, 'hand', 12, 'branch', 12, 'whip', 6, 'fan', 6,
+           'corymbose', 14, 'columnar', 10, 'tabular', 12, 'foliose', 12,
+           'mound', 10]
+  };
+
+  function chooseKind(mix) {
+    var total = 0, i;
+    for (i = 1; i < mix.length; i += 2) total += mix[i];
+    var r = rnd() * total;
+    for (i = 1; i < mix.length; i += 2) {
+      r -= mix[i];
+      if (r <= 0) return mix[i - 1];
+    }
+    return mix[0];
+  }
+
+  /* A massive coral: the flat domes that carry most of a reef's bulk. `low`
+     asks for one of the encrusting lumps that pack the gaps between the
+     bigger shapes rather than a boulder in its own right. */
+  function addMound(cx, floorY, li, layer, startT, rx, low) {
+    var textureRoll = layer.silhouette || low ? 1 : rnd();
+    mounds.push({
+      li: li,
+      x: cx,
+      y: floorY,
+      rx: rx,
+      ry: rx * (low ? rr(0.26, 0.5) : rr(0.45, 0.7)),
+      t0: startT,
+      /* the massive corals stay earthy — purple, orange, mustard. Let the
+         crust go the full rainbow and a dense reef reads as confetti. */
+      tone: hex2rgb(layer.silhouette ? pick(pal.deep)
+        : pick(rnd() < 0.34 ? fam('purple') : rnd() < 0.5 ? fam('orange') : fam('gold'))),
+      beaded: textureRoll >= 0.35 && textureRoll < 0.65,
+      groove: textureRoll < 0.35,
+      dots: 3 + ri(4),
+      seed: rnd()
+    });
+    GROWN_AT = Math.max(GROWN_AT, startT + 700);
+  }
+
   function buildScene() {
     rnd = mulberry32(seed);
-    colonies = []; mounds = []; fish = []; bubbles = []; waves = [];
+    colonies = []; mounds = []; forms = []; fish = []; bubbles = []; waves = [];
     critters = []; blacktips = []; wrasses = [];
     lionfishes = []; tangs = []; dragons = [];
     GROWN_AT = 0;
 
+    pickFamilies();
+    ceilingY = readCeiling();
     nearBoost = W < 760 ? 1.75 : W < 1100 ? 1.25 : 1;
     pxPerM = Math.min(W * 0.44, H * 0.52) / (METRES.whaleShark * LAYERS[1].scale);
 
@@ -581,54 +1058,65 @@
       if (layer.count === 0) continue;   /* the open foreground pane */
       var slots = Math.max(3, Math.round(layer.count * (0.6 + W / 2000)));
 
+      /* The base course, laid before anything else in the layer so it all
+         grows in front. A reef bed is not sand with coral standing on it —
+         it is coral, encrusting and massive colonies packed shoulder to
+         shoulder, with the big shapes rising out of them. */
+      var crust = Math.round(slots * 3);
+      for (var q = 0; q < crust; q++) {
+        var qx = W * ((q + rr(0.1, 0.9)) / crust);
+        addMound(qx, floorAt(li, qx), li, layer,
+          120 + li * 160 + (q / crust) * 900 + rr(0, 120),
+          H * 0.026 * layer.scale * rr(0.5, 1.45), true);
+      }
+
       for (var i = 0; i < slots; i++) {
-        /* spread across the width, jittered, with a bias to the edges on
-           the nearest layer so the middle stays open for the text */
+        /* spread across the width, jittered, and thinned toward the middle
+           on the nearest layer, which is the only one tall enough to reach
+           the text */
         var u = (i + rr(0.15, 0.85)) / slots;
-        if (li === 3) u = u < 0.5 ? u * 0.44 : 1 - (1 - u) * 0.44;
+        if (li === 3) u = u < 0.5 ? u * 0.74 : 1 - (1 - u) * 0.74;
         var cx = W * u;
         var floorY = floorAt(li, cx);
-        var startT = 200 + li * 190 + i * 60 + rr(0, 110);
-        var roll = rnd();
+        /* the stagger is a fraction of the layer's slot count, not a fixed
+           step per slot: crowd the reef and a per-slot step would drag the
+           growing-in out for half a minute */
+        var startT = 200 + li * 190 + (i / slots) * 1000 + rr(0, 140);
+        var kind = chooseKind(layer.silhouette ? MIX.deep : MIX.near);
 
         /* bed life scattered independently of whatever grows in this slot */
-        if (li >= 1 && rnd() < 0.5) {
+        if (li >= 1 && rnd() < 0.34) {
           var crx = cx + rr(-1, 1) * H * 0.028 * layer.scale;
           critters.push(buildCritter(crx, floorAt(li, crx), li, layer, startT + rr(80, 260)));
         }
 
-        if (roll < 0.06 + (layer.silhouette ? 0 : 0.08)) {
-          /* flat mound, textured as smooth, beaded or brain-coral grooves */
-          var rx = H * 0.04 * layer.scale * rr(0.7, 1.6);
-          var textureRoll = layer.silhouette ? 1 : rnd();
-          mounds.push({
-            li: li,
-            x: cx,
-            y: floorY,
-            rx: rx,
-            ry: rx * rr(0.45, 0.7),
-            t0: startT,
-            tone: hex2rgb(layer.silhouette ? pick(pal.deep) : pick(rnd() < 0.5 ? pal.purple : pal.orange)),
-            beaded: textureRoll >= 0.35 && textureRoll < 0.65,
-            groove: textureRoll < 0.35,
-            dots: 3 + ri(4),
-            seed: rnd()
-          });
-          GROWN_AT = Math.max(GROWN_AT, startT + 700);
+        /* free-living corals aren't attached to anything, so they don't
+           compete for a slot — they lie about on the open sand wherever the
+           current happened to leave them, including in front of whatever
+           else is growing here */
+        if (li >= 1 && rnd() < 0.2) {
+          var fx = cx + rr(-1, 1) * H * 0.040 * layer.scale;
+          forms.push(buildForm('freeLiving', fx, floorAt(li, fx), layer, li, startT + rr(120, 420)));
+        }
+
+        if (kind === 'mound') {
+          addMound(cx, floorY, li, layer, startT,
+            H * 0.045 * layer.scale * rr(0.7, 1.6), false);
           continue;
         }
 
-        var kind = roll < 0.30 ? 'kelp'
-          : roll < 0.58 ? 'hand'
-          : roll < 0.74 ? 'branch'
-          : roll < 0.88 ? 'whip'
-          : 'fan';
-        /* whips earn their keep from the cream beading, which the deep
-           silhouette layers don't get — they'd just read as stray wires */
-        if (layer.silhouette && kind === 'whip') kind = 'branch';
+        /* the plate corals are filled outlines rather than segment chains,
+           so they keep their own books */
+        if (kind === 'tabular' || kind === 'foliose') {
+          forms.push(buildForm(kind, cx, floorY, layer, li, startT));
+          continue;
+        }
 
-        /* kelp comes up in clumps of blades from nearly the same spot */
-        var clump = kind === 'kelp' ? 2 + ri(3) : 1;
+        /* kelp comes up in clumps of blades from nearly the same spot, and
+           corymbose Acropora often crowds a neighbour the same way */
+        var clump = kind === 'kelp' ? 2 + ri(2)
+          : kind === 'corymbose' && rnd() < 0.45 ? 2
+          : 1;
         for (var c = 0; c < clump; c++) {
           var bx = cx + rr(-1, 1) * H * 0.022 * layer.scale;
           colonies.push(buildColony(kind, bx, floorAt(li, bx), layer, li, startT + c * 90 + rr(0, 80)));
@@ -929,6 +1417,263 @@
       ctx.arc(m.x + Math.cos(a) * rx * 0.6, m.y + Math.sin(a) * ry * 0.6, Math.max(0.9, rx * 0.05), 0, TAU);
       ctx.fill();
     }
+  }
+
+  /* ------------------------------------------- plates, whorls, discs */
+
+  function drawForm(f, t) {
+    if (f.kind === 'tabular') drawTable(f, t);
+    else if (f.kind === 'foliose') drawFoliose(f, t);
+    else drawFreeLiving(f, t);
+  }
+
+  function drawTable(f, t) {
+    var trunk = easeOut(clamp01((t - f.t0) / 520));
+    if (trunk <= 0) return;
+    var spread = easeOut(clamp01((t - f.t0 - 340) / 900));
+    var nubs = easeOutBack(clamp01((t - f.t0 - 1140) / 460));
+    var tone = f.tone;
+
+    ctx.save();
+    ctx.translate(f.x, f.y);
+
+    /* the trunk, blunt and round-capped like every other stem here */
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = rgba(tone, 1);
+    ctx.lineWidth = Math.max(2, f.rx * 0.17);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -f.stalk * trunk);
+    ctx.stroke();
+
+    if (spread <= 0) { ctx.restore(); return; }
+
+    /* the table itself, which spreads outward from the top of the trunk
+       and lifts almost imperceptibly on the surge */
+    ctx.translate(0, -f.stalk);
+    ctx.rotate(f.tilt + (reduced ? 0 : Math.sin(t * 0.00045 + f.phase) * 0.014));
+
+    var rx = f.rx * spread;
+    var ry = f.ry * (0.55 + 0.45 * spread);
+    var N = f.rimX.length;
+
+    ctx.beginPath();
+    for (var i = 0; i <= N; i++) {
+      var a = ((i % N) / N) * TAU;
+      var j = i % N;
+      ctx.lineTo(Math.cos(a) * rx * f.rimX[j], Math.sin(a) * ry * f.rimY[j]);
+    }
+    ctx.closePath();
+    ctx.fillStyle = rgba(tone, 1);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    /* the shaded underside is what gives the plate its thickness — without
+       it the table reads as a disc floating on a stick */
+    ctx.fillStyle = rgba(mix(tone, [0, 0, 0], 0.32), 0.9);
+    ctx.fillRect(-rx, -ry * 0.08, rx * 2, ry * 1.4);
+    /* the branch lines that radiate out across the top face. They stop well
+       short of the middle: run them all the way in and the table stops being
+       a coral and starts being a parasol. */
+    if (!f.plain) {
+      ctx.strokeStyle = rgba(mix(tone, [255, 255, 255], 0.3), 0.22);
+      ctx.lineWidth = Math.max(0.6, f.rx * 0.018);
+      for (var g = 0; g < 7; g++) {
+        var ga = Math.PI + ((g + 0.5) / 7) * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ga) * rx * 0.42, Math.sin(ga) * ry * 0.42 - ry * 0.05);
+        ctx.lineTo(Math.cos(ga) * rx * 1.02, Math.sin(ga) * ry * 1.02);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    if (nubs > 0) {
+      var cream = hex2rgb(pal.cream);
+      ctx.lineCap = 'round';
+      for (var n = 0; n < f.nubs.length; n++) {
+        var nb = f.nubs[n];
+        var bx = rx * nb.u;
+        var by = -ry * Math.sqrt(Math.max(0, 1 - nb.u * nb.u)) * nb.v;
+        var h = f.rx * nb.h * nubs;
+        var tx = bx + nb.lean * h * 0.28;
+        var ty = by - h;
+        ctx.strokeStyle = rgba(tone, 1);
+        ctx.lineWidth = Math.max(1.2, f.rx * nb.w);
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        if (f.paleTips && nubs > 0.55) {
+          ctx.fillStyle = rgba(cream, 0.85);
+          ctx.beginPath();
+          ctx.arc(tx, ty, Math.max(0.8, f.rx * nb.w * 0.42), 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  /* One foliose whorl seen edge-on: a shallow lens whose upper margin
+     ruffles the way the growing edge of a plate coral does. `drop` slides
+     the whole outline down, for the dark lip drawn under each shelf. */
+  function shelfPath(w, h, sh, drop) {
+    var N = 18, i, u;
+    ctx.beginPath();
+    for (i = 0; i <= N; i++) {
+      u = -1 + (2 * i) / N;
+      var lift = 1 - u * u;
+      ctx.lineTo(
+        w * u,
+        -h * lift * (0.55 + sh.ripple * Math.sin(u * sh.lobes * Math.PI + sh.phase)) + drop
+      );
+    }
+    for (i = N; i >= 0; i--) {
+      u = -1 + (2 * i) / N;
+      ctx.lineTo(w * u, h * 0.34 * (1 - u * u * 0.7) + drop);
+    }
+    ctx.closePath();
+  }
+
+  function drawFoliose(f, t) {
+    var cream = hex2rgb(pal.cream);
+    var drift = reduced ? 0 : Math.sin(t * 0.0006 + f.phase);
+
+    /* the stalk, in shadow: the whorls are what faces the light */
+    var climb = easeOut(clamp01((t - f.t0) / 900));
+    if (climb <= 0) return;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = rgba(mix(f.tone, [0, 0, 0], 0.34), 1);
+    ctx.lineWidth = Math.max(2, f.trunkW);
+    ctx.beginPath();
+    ctx.moveTo(f.x, f.y);
+    ctx.lineTo(f.x + f.trunkLean * f.trunk * climb, f.y - f.trunk * climb);
+    ctx.stroke();
+
+    /* bottom shelf first, so each whorl overlaps and shades the one below */
+    for (var s = 0; s < f.shelves.length; s++) {
+      var sh = f.shelves[s];
+      var p = easeOut(clamp01((t - sh.t0) / 720));
+      if (p <= 0) continue;
+      var w = sh.w * p;
+      var h = sh.h * p;
+
+      ctx.save();
+      /* each whorl rides the stalk, so it follows whatever lean it has */
+      ctx.translate(f.x + sh.dx - f.trunkLean * sh.y, f.y + sh.y);
+      ctx.rotate(sh.lean + drift * 0.012 * (1 + s * 0.4));
+
+      /* a dark lip under the leading edge: this is what makes a stack read
+         as separate plates rather than one lumpy mass */
+      shelfPath(w, h, sh, h * 0.42);
+      ctx.fillStyle = rgba(mix(f.tone, [0, 0, 0], 0.38), 1);
+      ctx.fill();
+
+      /* upper whorls catch more light than the shaded ones beneath them —
+         except in the deep layers, which are flat silhouettes and take their
+         shape from the lips alone */
+      shelfPath(w, h, sh, 0);
+      ctx.fillStyle = rgba(
+        f.plain ? f.tone : mix(f.tone, [255, 255, 255], Math.min(0.2, s * 0.055)), 1);
+      ctx.fill();
+
+      /* cream beading picked out along the top two margins only, where the
+         eye is already looking */
+      if (f.beaded && s >= f.shelves.length - 2 && p > 0.85) {
+        ctx.fillStyle = rgba(cream, 0.8);
+        for (var b = 0; b < 4; b++) {
+          var u = -0.72 + b * 0.48;
+          var lift = 1 - u * u;
+          ctx.beginPath();
+          ctx.arc(
+            w * u,
+            -h * lift * (0.55 + sh.ripple * Math.sin(u * sh.lobes * Math.PI + sh.phase)),
+            Math.max(0.8, h * 0.11), 0, TAU
+          );
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawFreeLiving(f, t) {
+    var grow = easeOutBack(clamp01((t - f.t0) / 640));
+    if (grow <= 0) return;
+    /* a solitary coral inflates and deflates through the day; this is the
+       only coral here whose whole body breathes rather than sways */
+    var breathe = reduced ? 0 : Math.sin(t * 0.0011 + f.phase) * 0.02;
+    var r = f.r * grow * (1 + breathe);
+    var tone = f.tone;
+    var cream = hex2rgb(pal.cream);
+    var i;
+
+    ctx.save();
+    ctx.translate(f.x, f.y - r * 0.30);
+    ctx.rotate(f.tilt);
+
+    /* the tentacle crown, laid down first so the rim of the disc covers
+       where each one roots */
+    if (f.tent) {
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(0.8, r * 0.08);
+      ctx.strokeStyle = rgba(mix(tone, [255, 255, 255], 0.12), 0.9);
+      for (i = 0; i < f.tent; i++) {
+        var a = ((i + 0.5) / f.tent) * TAU;
+        var wob = reduced ? 0 : Math.sin(t * 0.0016 + f.phase + i * 1.7) * 0.14;
+        var reach = r * (0.62 + 0.7 * f.wob[i]) * grow;
+        var x0 = Math.cos(a) * r * 0.8;
+        var y0 = Math.sin(a) * r * 0.38;
+        var x1 = Math.cos(a + wob) * (r * 0.8 + reach);
+        var y1 = Math.sin(a + wob) * (r * 0.38 + reach * 0.5) - r * 0.06;
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.quadraticCurveTo((x0 + x1) * 0.5, (y0 + y1) * 0.5 - r * 0.1, x1, y1);
+        ctx.stroke();
+        ctx.fillStyle = rgba(cream, 0.7);
+        ctx.beginPath();
+        ctx.arc(x1, y1, Math.max(0.7, r * 0.05), 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    /* the disc, squashed because we are looking across it rather than down */
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.46, 0, 0, TAU);
+    ctx.closePath();
+    ctx.fillStyle = rgba(tone, 1);
+    ctx.fill();
+
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = rgba(mix(tone, [0, 0, 0], 0.28), 0.75);
+    ctx.fillRect(-r, r * 0.07, r * 2, r * 0.5);
+    /* septa: the blades radiating from the mouth, which is how you tell a
+       loose Fungia from a pebble */
+    if (!f.plain) {
+      ctx.strokeStyle = rgba(mix(tone, [0, 0, 0], 0.34), 0.5);
+      ctx.lineWidth = Math.max(0.6, r * 0.045);
+      for (i = 0; i < f.septa; i++) {
+        var sa = (i / f.septa) * TAU;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(sa) * r * 0.17, Math.sin(sa) * r * 0.08);
+        ctx.lineTo(Math.cos(sa) * r * 1.04, Math.sin(sa) * r * 0.5);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
+    if (!f.plain) {
+      ctx.fillStyle = rgba(cream, 0.72);
+      ctx.beginPath();
+      ctx.ellipse(0, -r * 0.02, r * 0.2, r * 0.075, 0, 0, TAU);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   function drawFishLayer(li, t, dt) {
@@ -2619,6 +3364,9 @@
     for (var li = 0; li < LAYERS.length; li++) {
       for (var m = 0; m < mounds.length; m++) {
         if (mounds[m].li === li) drawMound(mounds[m], t);
+      }
+      for (var fm = 0; fm < forms.length; fm++) {
+        if (forms[fm].li === li) drawForm(forms[fm], t);
       }
       for (var cr = 0; cr < critters.length; cr++) {
         if (critters[cr].li === li) drawCritter(critters[cr], t);
