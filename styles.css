@@ -215,6 +215,22 @@ a {
   color: var(--ink-soft);
 }
 
+/* ------------------------------------------------------------ title boot */
+
+/* While the nav titles are still scrambling their letters, the nav is up but
+   everything else waits. Dropping .scrambling starts the reveal cascade, so
+   the body arrives the moment the last letter locks in. */
+.scrambling .reveal:not(.tabs) {
+  animation: none;
+}
+
+.scrambling .tabs,
+.booted .tabs {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
 /* --------------------------------------------------------------- reveal in */
 
 .reveal {
