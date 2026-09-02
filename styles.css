@@ -223,6 +223,40 @@ a {
   color: var(--ink-soft);
 }
 
+/* ----------------------------------------------------------------- figure */
+
+/* A fraction of the text column's width, centered under it. The percentage
+   alone would resolve against .content — which runs wider than the 43rem
+   measure on a big screen — so the max-width is what actually pins this to a
+   fraction of the column the paragraphs occupy. Both rules land at the same
+   specificity as `.content > *`, so this block has to stay below it to win,
+   and the two fractions have to be kept in step. */
+.figure {
+  width: 60%;
+  max-width: calc(var(--measure) * 0.6);
+  margin: 1.9rem auto 0;
+}
+
+.figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The caption block sits centered under the image with its lines left aligned
+   and ragged right — not text-align: center, which would centre each line on
+   its own. The auto margins here do the centring, but only once caption.js has
+   pinned the width to the longest wrapped line; CSS has no way to express that
+   width, so until then the block fills the figure and reads as flush left. */
+.figure figcaption {
+  max-width: 100%;
+  margin: 0.6rem auto 0;
+  text-align: left;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
 /* ------------------------------------------------------------ title boot */
 
 /* While the nav titles are still scrambling their letters, the nav is up but
