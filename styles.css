@@ -3,29 +3,15 @@
  * ------------------------------------------------------------------ */
 
 :root {
-  /* Palette taken from Vivian Lopez Rowe's "Remarkably Bright Creatures"
-     cover: cream type on deep water, with the cover's warm yellow as the
-     one accent. The canvas paints the real gradient; this is the fallback. */
-  --bg: #0a3a58;
-  --ink: #f5f0e6;
-  --ink-soft: rgba(245, 240, 230, 0.72);
-  --rule: rgba(245, 240, 230, 0.22);
-  --accent: #f2cb3f;
+  --bg: #ffffff;
+  --ink: #000000;
+  --ink-soft: rgba(0, 0, 0, 0.62);
+  --rule: rgba(0, 0, 0, 0.15);
+  --accent: #002FA7;
 
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
-  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
 
   --measure: 43rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #04202f;
-    --ink: #ece5d6;
-    --ink-soft: rgba(236, 229, 214, 0.68);
-    --rule: rgba(236, 229, 214, 0.2);
-    --accent: #e8c33c;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -39,7 +25,7 @@ html, body {
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--sans);
+  font-family: var(--serif);
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   /* No scrollbar unless the content actually overflows — which keeps the
@@ -47,22 +33,10 @@ body {
   overflow-x: hidden;
 }
 
-/* ---------------------------------------------------------------- canvas */
-
-#scene {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-}
-
 /* ---------------------------------------------------------------- layout */
 
 .page {
   position: relative;
-  z-index: 1;
   min-height: 100%;
   display: flex;
 }
@@ -131,6 +105,11 @@ a {
 .post-title:hover,
 .tab-list a:hover {
   background-size: 100% 1px;
+}
+
+.prose a:active,
+.post-title:active,
+.tab-list a:active {
   color: var(--accent);
 }
 
@@ -165,7 +144,7 @@ a {
 }
 
 .tab-list a[aria-current="page"] {
-  color: var(--ink);
+  color: var(--accent);
   background-size: 100% 1px;
 }
 
@@ -176,12 +155,11 @@ a {
 
 .social a {
   display: block;
-  color: var(--ink-soft);
+  color: var(--accent);
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .social a:hover {
-  color: var(--accent);
   transform: translateY(-1px);
 }
 
