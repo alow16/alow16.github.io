@@ -6,17 +6,29 @@
 <title>Writing &middot; Anthony Low</title>
 <meta name="description" content="Writing by Anthony Low.">
 <link rel="stylesheet" href="styles.css">
+<script>
+  /* Inline and up front: the body has to be held back before it paints, or
+     it flashes in ahead of the titles. The timer is a dead-man's switch in
+     case scramble.js never arrives. */
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.add('scrambling');
+    setTimeout(function () {
+      document.documentElement.classList.remove('scrambling');
+      document.documentElement.classList.add('booted');
+    }, 4000);
+  }
+</script>
 </head>
 <body>
 <div class="page">
   <main class="content">
     <nav class="tabs reveal" style="--i:0" aria-label="Primary">
       <ul class="tab-list">
-        <li><a href="index.html">Anthony Low</a></li>
-        <li><a href="writing.html" aria-current="page">Writing</a></li>
+        <li><a href="index.html" data-scramble>Anthony Low</a></li>
+        <li><a href="writing.html" aria-current="page" data-scramble>Writing</a></li>
       </ul>
 
-      <ul class="social">
+      <ul class="social reveal" style="--i:1">
         <li>
           <a href="https://www.linkedin.com/in/alow16" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -66,5 +78,7 @@
 
   </main>
 </div>
+
+<script src="scramble.js"></script>
 </body>
 </html>
